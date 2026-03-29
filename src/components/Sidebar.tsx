@@ -30,6 +30,10 @@ const sections: { title: string; items: SidebarItem[] }[] = [
       { href: "/explorar?cat=esportes", label: "Esportes", icon: "trophy" },
       { href: "/explorar?cat=mundo", label: "Mundo", icon: "globe" },
       { href: "/explorar?cat=tech", label: "Tech / IA", icon: "cpu" },
+      { href: "/explorar?cat=clima", label: "Clima", icon: "cloud" },
+      { href: "/explorar?cat=ciencia", label: "Ciencia", icon: "beaker" },
+      { href: "/explorar?cat=saude", label: "Saude", icon: "heart" },
+      { href: "/explorar?cat=entretenimento", label: "Entretenimento", icon: "tv" },
     ],
   },
   {

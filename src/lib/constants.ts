@@ -7,6 +7,10 @@ export const CATEGORIES = [
   "Esportes",
   "Mundo",
   "Tech / IA",
+  "Clima",
+  "Ciência",
+  "Saúde",
+  "Entretenimento",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
