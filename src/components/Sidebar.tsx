@@ -47,6 +47,12 @@ const sections: { title: string; items: SidebarItem[] }[] = [
       { href: "/confianca", label: "Confiança", icon: "shield" },
     ],
   },
+  {
+    title: "Admin",
+    items: [
+      { href: "/admin", label: "Painel Admin", icon: "lock" },
+    ],
+  },
 ];
 
 export default function Sidebar() {
