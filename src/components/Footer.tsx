@@ -38,7 +38,7 @@ export default function Footer() {
 
         <div className="mt-6 pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-text-tertiary">
           <span>&copy; {new Date().getFullYear()} Odd. Todos os direitos reservados.</span>
-          <span>oddsbr.com</span>
+          <span>oddbr.com</span>
         </div>
       </div>
     </footer>

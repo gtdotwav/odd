@@ -8,7 +8,7 @@ const items = [
   { href: "/", label: "Início", icon: "home" },
   { href: "/explorar", label: "Explorar", icon: "compass" },
   { href: "/agora", label: "Agora", icon: "zap" },
-  { href: "/docs", label: "API", icon: "cpu" },
+  { href: "/portfolio", label: "Portfolio", icon: "bar-chart" },
 ];
 
 export default function BottomNav() {

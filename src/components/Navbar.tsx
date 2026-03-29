@@ -75,13 +75,13 @@ export default function Navbar() {
           </button>
 
           <Link
-            href="/"
+            href="/auth/login"
             className="hidden md:block text-sm font-medium text-text-secondary hover:text-text transition-colors"
           >
             Entrar
           </Link>
           <Link
-            href="/"
+            href="/auth/cadastro"
             className="px-4 py-1.5 rounded-md bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors"
           >
             Começar

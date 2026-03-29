@@ -17,6 +17,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"], "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
       };
       markets: {
         Row: {
@@ -45,6 +46,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["markets"]["Row"], "id" | "created_at" | "updated_at" | "volume" | "comment_count" | "variation_24h">;
         Update: Partial<Database["public"]["Tables"]["markets"]["Insert"]>;
+        Relationships: [];
       };
       outcomes: {
         Row: {
@@ -57,6 +59,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["outcomes"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["outcomes"]["Insert"]>;
+        Relationships: [];
       };
       orders: {
         Row: {
@@ -75,6 +78,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["orders"]["Row"], "id" | "created_at" | "updated_at" | "filled_quantity">;
         Update: Partial<Database["public"]["Tables"]["orders"]["Insert"]>;
+        Relationships: [];
       };
       positions: {
         Row: {
@@ -90,6 +94,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["positions"]["Row"], "id" | "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["positions"]["Insert"]>;
+        Relationships: [];
       };
       wallets: {
         Row: {
@@ -102,6 +107,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["wallets"]["Row"], "id" | "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["wallets"]["Insert"]>;
+        Relationships: [];
       };
       transactions: {
         Row: {
@@ -118,6 +124,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["transactions"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["transactions"]["Insert"]>;
+        Relationships: [];
       };
       comments: {
         Row: {
@@ -131,6 +138,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["comments"]["Row"], "id" | "created_at" | "updated_at" | "like_count">;
         Update: Partial<Database["public"]["Tables"]["comments"]["Insert"]>;
+        Relationships: [];
       };
       comment_likes: {
         Row: {
@@ -140,6 +148,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["comment_likes"]["Row"], "created_at">;
         Update: never;
+        Relationships: [];
       };
       follows: {
         Row: {
@@ -149,6 +158,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["follows"]["Row"], "created_at">;
         Update: never;
+        Relationships: [];
       };
       watchlist: {
         Row: {
@@ -158,6 +168,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["watchlist"]["Row"], "created_at">;
         Update: never;
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -172,6 +183,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["notifications"]["Row"], "id" | "created_at" | "read">;
         Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]> & { read?: boolean };
+        Relationships: [];
       };
       price_history: {
         Row: {
@@ -184,6 +196,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["price_history"]["Row"], "id">;
         Update: never;
+        Relationships: [];
       };
       activity_log: {
         Row: {
@@ -198,6 +211,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["activity_log"]["Row"], "id" | "created_at">;
         Update: never;
+        Relationships: [];
       };
       sport_data: {
         Row: {
@@ -213,6 +227,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["sport_data"]["Row"], "id" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["sport_data"]["Insert"]>;
+        Relationships: [];
       };
       crypto_data: {
         Row: {
@@ -225,10 +240,29 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["crypto_data"]["Row"], "id" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["crypto_data"]["Insert"]>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_profile: { Args: { p_clerk_id: string; p_handle: string; p_display_name: string; p_avatar_url?: string | null }; Returns: string };
+      place_order: { Args: { p_clerk_id: string; p_market_id: string; p_side: string; p_type: string; p_price: number; p_quantity: number }; Returns: Json };
+      cancel_order: { Args: { p_clerk_id: string; p_order_id: string }; Returns: Json };
+      post_comment: { Args: { p_clerk_id: string; p_market_id: string; p_text: string }; Returns: Json };
+      toggle_watchlist: { Args: { p_clerk_id: string; p_market_id: string }; Returns: Json };
+      toggle_comment_like: { Args: { p_clerk_id: string; p_comment_id: string }; Returns: Json };
+      add_balance: { Args: { p_clerk_id: string; p_amount: number; p_reference?: string | null; p_description?: string | null }; Returns: Json };
+      get_leaderboard: { Args: { p_limit?: number }; Returns: { user_id: string; handle: string; display_name: string; avatar_url: string | null; total_volume: number; total_trades: number; total_pnl: number }[] };
+      get_user_orders: { Args: { p_clerk_id: string; p_status?: string | null }; Returns: Json };
+      get_user_positions: { Args: { p_clerk_id: string }; Returns: Json };
+      get_user_wallet: { Args: { p_clerk_id: string }; Returns: Json };
+      get_user_notifications: { Args: { p_clerk_id: string }; Returns: Json };
+      mark_notifications_read: { Args: { p_clerk_id: string; p_ids?: string[] | null }; Returns: Json };
+      get_user_watchlist: { Args: { p_clerk_id: string }; Returns: Json };
+      get_market_comments: { Args: { p_market_id: string; p_clerk_id?: string | null }; Returns: Json };
+      get_user_profile: { Args: { p_clerk_id: string }; Returns: Json };
+      get_public_profile: { Args: { p_handle: string }; Returns: Json };
+    };
     Enums: Record<string, never>;
   };
 }

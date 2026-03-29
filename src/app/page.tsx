@@ -26,9 +26,9 @@ function HeroSection() {
           A Odd é o mercado onde você negocia probabilidades sobre o que vai acontecer no Brasil e no mundo. Sua opinião vale. Literalmente.
         </p>
         <div className="flex gap-3">
-          <button type="button" className="px-5 py-2.5 rounded-lg bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors">
+          <Link href="/auth/cadastro" className="px-5 py-2.5 rounded-lg bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors inline-block">
             Começar agora →
-          </button>
+          </Link>
           <Link href="/explorar" className="px-5 py-2.5 rounded-lg border border-border text-text-secondary hover:text-text hover:border-border-strong text-sm font-medium transition-colors">
             Explorar mercados
           </Link>

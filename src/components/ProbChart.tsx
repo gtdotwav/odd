@@ -251,7 +251,6 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
         ref={svgRef}
         viewBox={`0 0 ${chartW} ${CHART_HEIGHT}`}
         className="w-full select-none touch-none"
-        style={{ height: CHART_HEIGHT }}
         preserveAspectRatio="xMidYMid meet"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoverIdx(null)}

@@ -8,7 +8,6 @@ interface SidebarItem {
   href: string;
   label: string;
   icon: string;
-  soon?: boolean;
 }
 
 const sections: { title: string; items: SidebarItem[] }[] = [
@@ -36,16 +35,16 @@ const sections: { title: string; items: SidebarItem[] }[] = [
   {
     title: "Pessoal",
     items: [
-      { href: "/watchlist", label: "Watchlist", icon: "star", soon: true },
-      { href: "/carteira", label: "Portfolio", icon: "bar-chart", soon: true },
-      { href: "/recompensas", label: "Recompensas", icon: "gift", soon: true },
+      { href: "/portfolio", label: "Portfolio", icon: "bar-chart" },
+      { href: "/carteira", label: "Carteira", icon: "gift" },
+      { href: "/watchlist", label: "Watchlist", icon: "star" },
     ],
   },
   {
     title: "Comunidade",
     items: [
-      { href: "/rankings", label: "Rankings", icon: "trophy", soon: true },
-      { href: "/confianca", label: "Confiança", icon: "shield", soon: true },
+      { href: "/rankings", label: "Rankings", icon: "trophy" },
+      { href: "/confianca", label: "Confiança", icon: "shield" },
     ],
   },
 ];
@@ -67,20 +66,7 @@ export default function Sidebar() {
           <h4 className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
             {section.title}
           </h4>
-          {section.items.map((item) =>
-            item.soon ? (
-              <span
-                key={item.label}
-                className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-text-tertiary cursor-default"
-                aria-disabled="true"
-              >
-                <Icon name={item.icon} className="w-4 h-4 shrink-0 opacity-40" />
-                {item.label}
-                <span className="ml-auto text-[9px] uppercase tracking-wider font-semibold text-text-tertiary bg-surface-raised px-1.5 py-0.5 rounded">
-                  Em breve
-                </span>
-              </span>
-            ) : (
+          {section.items.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
@@ -93,8 +79,7 @@ export default function Sidebar() {
                 <Icon name={item.icon} className={`w-4 h-4 shrink-0 ${isActive(item.href) ? "opacity-100" : "opacity-60"}`} />
                 {item.label}
               </Link>
-            )
-          )}
+            ))}
         </div>
       ))}
     </aside>

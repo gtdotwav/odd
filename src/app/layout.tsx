@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s | Odd",
   },
   description: "Negocie probabilidades sobre o que vai acontecer no Brasil e no mundo. Futebol, política, economia, cripto e cultura pop.",
-  metadataBase: new URL("https://odd.com.br"),
+  metadataBase: new URL("https://oddbr.com"),
   openGraph: {
     type: "website",
     locale: "pt_BR",
