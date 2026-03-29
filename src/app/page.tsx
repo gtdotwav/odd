@@ -5,7 +5,15 @@ import { getMarkets, getFeaturedMarket, getStats } from "@/lib/queries/markets";
 import { formatVolume } from "@/lib/utils";
 import Link from "next/link";
 
-const tabs = ["Em alta", "Novos", "Popular", "Líquido", "Fechando", "Disputado", "Brasil"];
+const tabs = [
+  { label: "Em alta", tab: "trending" },
+  { label: "Novos", tab: "new" },
+  { label: "Popular", tab: "popular" },
+  { label: "Líquido", tab: "liquid" },
+  { label: "Fechando", tab: "closing" },
+  { label: "Disputado", tab: "disputed" },
+  { label: "Brasil", tab: "brazil" },
+];
 
 function HeroSection() {
   return (
@@ -18,7 +26,7 @@ function HeroSection() {
           A Odd é o mercado onde você negocia probabilidades sobre o que vai acontecer no Brasil e no mundo. Sua opinião vale. Literalmente.
         </p>
         <div className="flex gap-3">
-          <button className="px-5 py-2.5 rounded-lg bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors">
+          <button type="button" className="px-5 py-2.5 rounded-lg bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors">
             Começar agora →
           </button>
           <Link href="/explorar" className="px-5 py-2.5 rounded-lg border border-border text-text-secondary hover:text-text hover:border-border-strong text-sm font-medium transition-colors">
@@ -84,16 +92,17 @@ export default async function Home() {
         <section className="mb-6">
           <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
             {tabs.map((tab, i) => (
-              <button
-                key={tab}
+              <Link
+                key={tab.tab}
+                href={`/explorar?tab=${tab.tab}`}
                 className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   i === 0
                     ? "bg-accent/10 text-accent"
                     : "text-text-secondary hover:text-text hover:bg-surface-raised"
                 }`}
               >
-                {tab}
-              </button>
+                {tab.label}
+              </Link>
             ))}
           </div>
 

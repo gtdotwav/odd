@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Sidebar from "@/components/Sidebar";
 import { getMarkets } from "@/lib/queries/markets";
 import MarketGrid from "./MarketGrid";
+
+export const metadata: Metadata = {
+  title: "Explorar mercados",
+  description: "Encontre e negocie mercados de previsão sobre futebol, política, economia, cripto e cultura pop no Brasil.",
+};
 
 export default async function ExplorePage({
   searchParams,

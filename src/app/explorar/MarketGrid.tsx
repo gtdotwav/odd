@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import MarketCard from "@/components/MarketCard";
+import EmptyState from "@/components/EmptyState";
 import type { Market } from "@/types/market";
 
 const tabs = ["Todos", "Novos", "Em alta", "Popular", "Líquido", "Fechando", "Disputado", "Brasil"];
@@ -47,12 +48,14 @@ export default function MarketGrid({ initialMarkets, total, activeCategory, acti
   return (
     <>
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-1">
+      <div className="sticky top-20 z-10 bg-ink pt-2 -mt-2 pb-1 -mx-4 px-4 md:-mx-6 md:px-6">
+      <div className="flex items-center gap-1 mb-2 overflow-x-auto pb-1">
         {tabs.map((tab, i) => {
           const value = tabValues[i];
           const isActive = (activeTab || "all") === value;
           return (
             <button
+              type="button"
               key={tab}
               onClick={() => updateParams({ tab: value })}
               className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -66,12 +69,13 @@ export default function MarketGrid({ initialMarkets, total, activeCategory, acti
       </div>
 
       {/* Category filters */}
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 mb-2 overflow-x-auto pb-1">
         <span className="text-xs text-text-tertiary shrink-0">Categoria:</span>
         {categories.map((cat) => {
           const isActive = (activeCategory || "Todas") === cat;
           return (
             <button
+              type="button"
               key={cat}
               onClick={() => updateParams({ category: cat })}
               className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
@@ -84,6 +88,7 @@ export default function MarketGrid({ initialMarkets, total, activeCategory, acti
             </button>
           );
         })}
+      </div>
       </div>
 
       {/* Count + sort */}
@@ -120,9 +125,11 @@ export default function MarketGrid({ initialMarkets, total, activeCategory, acti
 
       {/* Grid */}
       {initialMarkets.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-text-secondary">Nenhum mercado encontrado.</p>
-        </div>
+        <EmptyState
+          icon="search"
+          title="Nenhum mercado encontrado"
+          description="Tente mudar os filtros ou a busca para encontrar o que procura."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {initialMarkets.map((m) => (

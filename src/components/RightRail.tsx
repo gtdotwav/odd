@@ -85,7 +85,7 @@ export default async function RightRail() {
             </div>
           ))}
         </div>
-        <button className="mt-2 text-xs text-accent hover:underline">Ver ranking completo →</button>
+        <button type="button" className="mt-2 text-xs text-accent hover:underline">Ver ranking completo →</button>
       </section>
     </aside>
   );

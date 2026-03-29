@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Icon from "./Icon";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 const mobileCategories = [
   { href: "/explorar?cat=futebol", label: "Futebol", icon: "football" },
@@ -13,8 +14,15 @@ const mobileCategories = [
   { href: "/explorar?cat=cripto", label: "Cripto", icon: "bitcoin" },
 ];
 
+const navLinks = [
+  { href: "/explorar", label: "Explorar" },
+  { href: "/agora", label: "Agora", live: true },
+  { href: "/docs", label: "API" },
+];
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-xl">
@@ -26,20 +34,29 @@ export default function Navbar() {
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-1 ml-4">
-          <Link href="/explorar" className="px-3 py-1.5 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
-            Explorar
-          </Link>
-          <Link href="/agora" className="px-3 py-1.5 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-down animate-pulse-live" />
-            Agora
-          </Link>
-          <Link href="/docs" className="px-3 py-1.5 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
-            API
-          </Link>
+          {navLinks.map((link) => {
+            const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  link.live ? "flex items-center gap-1.5" : ""
+                } ${
+                  isActive
+                    ? "text-text font-medium bg-surface-raised"
+                    : "text-text-secondary hover:text-text hover:bg-surface-raised"
+                }`}
+              >
+                {link.live && <span className="w-1.5 h-1.5 rounded-full bg-down animate-pulse-live" />}
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Search */}
-        <button className="hidden md:flex flex-1 max-w-md items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-surface text-sm text-text-tertiary hover:border-border-strong transition-colors mx-4">
+        <button type="button" className="hidden md:flex flex-1 max-w-md items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-surface text-sm text-text-tertiary hover:border-border-strong transition-colors mx-4">
           <Icon name="search" className="w-4 h-4 opacity-50" />
           Buscar mercados, pessoas, categorias...
           <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-surface-raised border border-border font-mono">⌘K</kbd>
@@ -48,11 +65,11 @@ export default function Navbar() {
         {/* Right */}
         <div className="flex items-center gap-2 ml-auto">
           {/* Mobile search */}
-          <button className="md:hidden p-2 text-text-secondary hover:text-text">
+          <button type="button" aria-label="Buscar" className="md:hidden p-2 text-text-secondary hover:text-text">
             <Icon name="search" className="w-5 h-5" />
           </button>
 
-          <button className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
+          <button type="button" aria-label="Notificações" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
             <Icon name="bell" className="w-4 h-4" />
             <span className="w-4 h-4 rounded-full bg-highlight text-[10px] text-white flex items-center justify-center font-sans">3</span>
           </button>
@@ -71,7 +88,7 @@ export default function Navbar() {
           </Link>
 
           {/* Mobile menu */}
-          <button className="md:hidden p-2 text-text-secondary" onClick={() => setMenuOpen(!menuOpen)}>
+          <button type="button" aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} className="md:hidden p-2 text-text-secondary" onClick={() => setMenuOpen(!menuOpen)}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {menuOpen
                 ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -86,15 +103,21 @@ export default function Navbar() {
       {menuOpen && (
         <nav className="md:hidden border-t border-border bg-surface animate-slide-up">
           <div className="px-4 py-3 space-y-1">
-            <Link href="/explorar" className="block px-3 py-2 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised" onClick={() => setMenuOpen(false)}>
-              Explorar
-            </Link>
-            <Link href="/agora" className="block px-3 py-2 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised" onClick={() => setMenuOpen(false)}>
-              Agora
-            </Link>
-            <Link href="/docs" className="block px-3 py-2 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised" onClick={() => setMenuOpen(false)}>
-              API
-            </Link>
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`block px-3 py-2 text-sm rounded-md ${
+                    isActive ? "text-text font-medium bg-surface-raised" : "text-text-secondary hover:text-text hover:bg-surface-raised"
+                  }`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
             <div className="h-px bg-border my-2" />
             {mobileCategories.map((item) => (
               <Link

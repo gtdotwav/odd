@@ -49,7 +49,7 @@ export default function MarketCard({ market, featured = false }: { market: Marke
       href={`/mercado/${market.slug}`}
       className={`
         group block rounded-lg border border-border bg-surface
-        hover:border-border-strong hover:bg-surface-raised
+        hover:border-border-strong hover:bg-surface-raised hover:shadow-md hover:-translate-y-0.5
         transition-all duration-150
         ${featured ? "col-span-full" : ""}
         ${isResolved ? "opacity-75" : ""}
@@ -154,10 +154,10 @@ export default function MarketCard({ market, featured = false }: { market: Marke
         {/* CTAs */}
         {!isResolved && market.type === "binary" && (
           <div className="flex gap-2 mt-3">
-            <button className="flex-1 py-2 rounded-md bg-up/10 text-up text-sm font-semibold hover:bg-up/20 transition-colors">
+            <button type="button" className="flex-1 py-2 rounded-md bg-up/10 text-up text-sm font-semibold hover:bg-up/20 transition-colors">
               Sim R${market.priceYes.toFixed(2)}
             </button>
-            <button className="flex-1 py-2 rounded-md bg-down/10 text-down text-sm font-semibold hover:bg-down/20 transition-colors">
+            <button type="button" className="flex-1 py-2 rounded-md bg-down/10 text-down text-sm font-semibold hover:bg-down/20 transition-colors">
               Não R${market.priceNo.toFixed(2)}
             </button>
           </div>

@@ -22,6 +22,8 @@ const paths: Record<string, string> = {
   check: "M20 6L9 17l-5-5",
   "alert-triangle": "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
   sparkle: "M12 3v1m0 16v1m9-9h-1M4 12H3m15.36-6.36l-.71.71M6.34 17.66l-.7.7m12.02.01l-.7-.71M6.34 6.34l-.7-.7",
+  "chevron-right": "M9 18l6-6-6-6",
+  compass: "M12 2a10 10 0 100 20 10 10 0 000-20zM16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z",
 };
 
 export default function Icon({ name, className = "w-4 h-4" }: { name: string; className?: string }) {

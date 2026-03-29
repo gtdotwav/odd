@@ -10,28 +10,28 @@
 
   /* Text */
   --color-text: #111827;
-  --color-text-secondary: #64748B;
-  --color-text-tertiary: #94A3B8;
+  --color-text-secondary: #4B5563;
+  --color-text-tertiary: #6B7280;
 
-  /* Brand — Azul claro */
-  --color-accent: #38A3F5;
-  --color-accent-hover: #1E8DE8;
-  --color-accent-subtle: oklch(from #38A3F5 l c h / 10%);
+  /* Brand — Azul (WCAG AA ≥ 4.5:1 on white) */
+  --color-accent: #2178B5;
+  --color-accent-hover: #1A6499;
+  --color-accent-subtle: oklch(from #2178B5 l c h / 10%);
 
-  /* Brand — Laranja */
-  --color-highlight: #F27A2E;
-  --color-highlight-hover: #E06820;
+  /* Brand — Laranja (WCAG AA ≥ 4.5:1 for white-on-bg) */
+  --color-highlight: #D35C1A;
+  --color-highlight-hover: #B84E15;
 
-  /* Trading */
-  --color-up: #10B981;
-  --color-up-subtle: oklch(from #10B981 l c h / 8%);
-  --color-down: #EF4444;
-  --color-down-subtle: oklch(from #EF4444 l c h / 8%);
-  --color-neutral-warn: #F59E0B;
+  /* Trading (WCAG AA ≥ 4.5:1 on white) */
+  --color-up: #047857;
+  --color-up-subtle: oklch(from #047857 l c h / 8%);
+  --color-down: #DC2626;
+  --color-down-subtle: oklch(from #DC2626 l c h / 8%);
+  --color-neutral-warn: #D97706;
 
-  /* Type */
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Type — next/font CSS variables set in layout.tsx */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
 html {
@@ -73,4 +73,31 @@ body {
 
 .animate-flip {
   animation: flip-number 0.3s ease-out;
+}
+
+/* U-04 — Global focus-visible rings for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* U-37 — Button press feedback */
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection color */
+::selection {
+  background: oklch(from var(--color-accent) l c h / 20%);
 }

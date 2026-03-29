@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import MarketCard from "@/components/MarketCard";
 import Sidebar from "@/components/Sidebar";
 import { getTopMovers } from "@/lib/queries/markets";
 import { formatVariation } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Agora",
+  description: "Maiores movimentos nas últimas 24h nos mercados de previsão da Odd.",
+};
 
 export default async function AgoraPage() {
   const movers = await getTopMovers(10);
@@ -34,10 +40,10 @@ export default async function AgoraPage() {
               <span className="text-sm text-text-secondary">nas últimas 24h</span>
             </div>
             <div className="flex gap-2 mt-4">
-              <button className="px-4 py-2 rounded-md bg-up/10 text-up text-sm font-semibold hover:bg-up/20 transition-colors">
+              <button type="button" className="px-4 py-2 rounded-md bg-up/10 text-up text-sm font-semibold hover:bg-up/20 transition-colors">
                 Sim R${sorted[0].priceYes.toFixed(2)}
               </button>
-              <button className="px-4 py-2 rounded-md bg-down/10 text-down text-sm font-semibold hover:bg-down/20 transition-colors">
+              <button type="button" className="px-4 py-2 rounded-md bg-down/10 text-down text-sm font-semibold hover:bg-down/20 transition-colors">
                 Não R${sorted[0].priceNo.toFixed(2)}
               </button>
             </div>

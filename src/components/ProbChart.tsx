@@ -188,15 +188,25 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
   const changePct = firstValue > 0 ? (change / firstValue) * 100 : 0;
   const isPositive = change >= 0;
 
-  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+  function resolveIdx(clientX: number) {
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * chartW;
+    const mouseX = ((clientX - rect.left) / rect.width) * chartW;
     const relX = mouseX - PADDING.left;
     const idx = Math.round((relX / plotW) * (data.length - 1));
-    const clamped = Math.max(0, Math.min(data.length - 1, idx));
-    setHoverIdx(clamped);
+    setHoverIdx(Math.max(0, Math.min(data.length - 1, idx)));
+  }
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    resolveIdx(e.clientX);
+  }
+
+  function handleTouchMove(e: React.TouchEvent<SVGSVGElement>) {
+    if (e.touches.length > 0) {
+      e.preventDefault();
+      resolveIdx(e.touches[0].clientX);
+    }
   }
 
   return (
@@ -214,6 +224,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
         <div className="flex gap-0.5">
           {PERIODS.map((p) => (
             <button
+              type="button"
               key={p}
               onClick={() => { setActivePeriod(p); setHoverIdx(null); }}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
@@ -231,7 +242,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
         {hoverPoint ? (
           <span className="text-xs text-text-tertiary">{hoverPoint.date}</span>
         ) : (
-          <span className="text-xs text-text-tertiary">Passe o mouse para ver valores</span>
+          <span className="text-xs text-text-tertiary">Toque ou passe o mouse para ver valores</span>
         )}
       </div>
 
@@ -239,16 +250,18 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
       <svg
         ref={svgRef}
         viewBox={`0 0 ${chartW} ${CHART_HEIGHT}`}
-        className="w-full select-none"
+        className="w-full select-none touch-none"
         style={{ height: CHART_HEIGHT }}
         preserveAspectRatio="xMidYMid meet"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoverIdx(null)}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={() => setHoverIdx(null)}
       >
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#38A3F5" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#38A3F5" stopOpacity="0" />
+            <stop offset="0%" stopColor="#2178B5" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#2178B5" stopOpacity="0" />
           </linearGradient>
           <clipPath id="plotClip">
             <rect x={PADDING.left} y={PADDING.top} width={plotW} height={plotH} />
@@ -302,7 +315,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
         <path
           d={smoothPath}
           fill="none"
-          stroke="#38A3F5"
+          stroke="#2178B5"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -311,7 +324,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
 
         {/* High marker */}
         <g>
-          <circle cx={toX(highIdx)} cy={toY(values[highIdx])} r="3" fill="#38A3F5" opacity="0.6" />
+          <circle cx={toX(highIdx)} cy={toY(values[highIdx])} r="3" fill="#2178B5" opacity="0.6" />
           <text
             x={toX(highIdx)}
             y={toY(values[highIdx]) - 8}
@@ -327,7 +340,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
 
         {/* Low marker */}
         <g>
-          <circle cx={toX(lowIdx)} cy={toY(values[lowIdx])} r="3" fill="#EF4444" opacity="0.6" />
+          <circle cx={toX(lowIdx)} cy={toY(values[lowIdx])} r="3" fill="#DC2626" opacity="0.6" />
           <text
             x={toX(lowIdx)}
             y={toY(values[lowIdx]) + 15}
@@ -367,8 +380,8 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
               strokeDasharray="3 3"
             />
             {/* Dot */}
-            <circle cx={hoverX} cy={hoverY} r="5" fill="#38A3F5" opacity="0.2" />
-            <circle cx={hoverX} cy={hoverY} r="3" fill="#38A3F5" />
+            <circle cx={hoverX} cy={hoverY} r="5" fill="#2178B5" opacity="0.2" />
+            <circle cx={hoverX} cy={hoverY} r="3" fill="#2178B5" />
             <circle cx={hoverX} cy={hoverY} r="1.5" fill="white" />
 
             {/* Value label on Y axis */}
@@ -378,7 +391,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
               width={PADDING.left - 4}
               height={18}
               rx="3"
-              fill="#38A3F5"
+              fill="#2178B5"
             />
             <text
               x={(PADDING.left - 4) / 2}
@@ -399,7 +412,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
               width={60}
               height={18}
               rx="3"
-              fill="#38A3F5"
+              fill="#2178B5"
             />
             <text
               x={Math.max(PADDING.left + 30, Math.min(hoverX, PADDING.left + plotW - 30))}
