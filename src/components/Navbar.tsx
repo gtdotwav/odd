@@ -3,8 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import Icon from "./Icon";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
 
 const mobileCategories = [
   { href: "/explorar?cat=futebol", label: "Futebol", icon: "football" },
@@ -17,12 +18,41 @@ const mobileCategories = [
 const navLinks = [
   { href: "/explorar", label: "Explorar" },
   { href: "/agora", label: "Agora", live: true },
+  { href: "/diarias", label: "Diárias" },
   { href: "/docs", label: "API" },
 ];
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const pathname = usePathname();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  let isSignedIn = false;
+  let user: ReturnType<typeof useUser>["user"] = null;
+  let signOut: (() => Promise<void>) | null = null;
+
+  try {
+    const clerkUser = useUser();
+    const clerk = useClerk();
+    isSignedIn = !!clerkUser.isSignedIn;
+    user = clerkUser.user;
+    signOut = () => clerk.signOut();
+  } catch {
+    // Clerk not configured
+  }
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [dropdownOpen]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-xl">
@@ -69,23 +99,87 @@ export default function Navbar() {
             <Icon name="search" className="w-5 h-5" />
           </button>
 
-          <button type="button" aria-label="Notificações" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
-            <Icon name="bell" className="w-4 h-4" />
-            <span className="w-4 h-4 rounded-full bg-highlight text-[10px] text-white flex items-center justify-center font-sans">3</span>
-          </button>
+          {isSignedIn && user ? (
+            <>
+              <Link href="/notificacoes" aria-label="Notificações" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
+                <Icon name="bell" className="w-4 h-4" />
+              </Link>
 
-          <Link
-            href="/auth/login"
-            className="hidden md:block text-sm font-medium text-text-secondary hover:text-text transition-colors"
-          >
-            Entrar
-          </Link>
-          <Link
-            href="/auth/cadastro"
-            className="px-4 py-1.5 rounded-md bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors"
-          >
-            Começar
-          </Link>
+              {/* User dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-surface-raised transition-colors"
+                >
+                  {user.imageUrl ? (
+                    <Image src={user.imageUrl} alt={user.fullName || ""} width={32} height={32} className="rounded-full" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-sm font-bold text-accent">
+                      {user.firstName?.[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
+                  <span className="hidden md:block text-sm font-medium text-text max-w-[100px] truncate">
+                    {user.firstName || "Usuário"}
+                  </span>
+                  <Icon name="chevron-down" className="w-3.5 h-3.5 text-text-tertiary hidden md:block" />
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-52 rounded-lg border border-border bg-surface shadow-xl z-50 py-1">
+                    <div className="px-3 py-2 border-b border-border">
+                      <p className="text-sm font-medium text-text truncate">{user.fullName || user.firstName}</p>
+                      <p className="text-xs text-text-tertiary truncate">{user.primaryEmailAddress?.emailAddress}</p>
+                    </div>
+                    <Link href="/portfolio" className="flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:text-text hover:bg-surface-raised transition-colors" onClick={() => setDropdownOpen(false)}>
+                      <Icon name="bar-chart" className="w-4 h-4 opacity-60" />
+                      Portfolio
+                    </Link>
+                    <Link href="/carteira" className="flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:text-text hover:bg-surface-raised transition-colors" onClick={() => setDropdownOpen(false)}>
+                      <Icon name="gift" className="w-4 h-4 opacity-60" />
+                      Carteira
+                    </Link>
+                    <Link href="/watchlist" className="flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:text-text hover:bg-surface-raised transition-colors" onClick={() => setDropdownOpen(false)}>
+                      <Icon name="star" className="w-4 h-4 opacity-60" />
+                      Watchlist
+                    </Link>
+                    <Link href="/config" className="flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:text-text hover:bg-surface-raised transition-colors" onClick={() => setDropdownOpen(false)}>
+                      <Icon name="settings" className="w-4 h-4 opacity-60" />
+                      Configurações
+                    </Link>
+                    <div className="border-t border-border my-1" />
+                    <button
+                      type="button"
+                      onClick={() => { setDropdownOpen(false); signOut?.(); }}
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-down hover:bg-surface-raised transition-colors w-full text-left"
+                    >
+                      <Icon name="share" className="w-4 h-4 opacity-60" />
+                      Sair
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <button type="button" aria-label="Notificações" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
+                <Icon name="bell" className="w-4 h-4" />
+                <span className="w-4 h-4 rounded-full bg-highlight text-[10px] text-white flex items-center justify-center font-sans">3</span>
+              </button>
+              <Link
+                href="/auth/login"
+                className="hidden md:block text-sm font-medium text-text-secondary hover:text-text transition-colors"
+              >
+                Entrar
+              </Link>
+              <Link
+                href="/auth/cadastro"
+                className="px-4 py-1.5 rounded-md bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors"
+              >
+                Começar
+              </Link>
+            </>
+          )}
 
           {/* Mobile menu */}
           <button type="button" aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} className="md:hidden p-2 text-text-secondary" onClick={() => setMenuOpen(!menuOpen)}>
@@ -130,6 +224,19 @@ export default function Navbar() {
                 {item.label}
               </Link>
             ))}
+            {isSignedIn && (
+              <>
+                <div className="h-px bg-border my-2" />
+                <Link href="/portfolio" className="flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised" onClick={() => setMenuOpen(false)}>
+                  <Icon name="bar-chart" className="w-4 h-4 opacity-50" />
+                  Portfolio
+                </Link>
+                <Link href="/carteira" className="flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:text-text rounded-md hover:bg-surface-raised" onClick={() => setMenuOpen(false)}>
+                  <Icon name="gift" className="w-4 h-4 opacity-50" />
+                  Carteira
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       )}

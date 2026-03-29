@@ -1,148 +1,71 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
 import EmptyState from "@/components/EmptyState";
 import Icon from "@/components/Icon";
+import { Skeleton } from "@/components/Skeleton";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "Portfolio",
-  description: "Suas posições, ordens e performance nos mercados de previsão da Odd.",
-};
-
 interface Position {
-  id: string;
-  marketSlug: string;
-  marketTitle: string;
+  market_id: string;
+  market_slug: string;
+  market_title: string;
   side: "yes" | "no";
   quantity: number;
-  avgPrice: number;
-  currentPrice: number;
+  avg_price: number;
+  current_price: number;
   pnl: number;
-  pnlPercent: number;
+  pnl_percent: number;
 }
 
 interface Order {
   id: string;
-  marketSlug: string;
-  marketTitle: string;
+  market_slug: string;
+  market_title: string;
   side: "yes" | "no";
   type: "market" | "limit";
   price: number;
   quantity: number;
-  filledQuantity: number;
+  filled_quantity: number;
   status: "pending" | "partial" | "filled" | "cancelled";
-  createdAt: string;
+  created_at: string;
 }
 
-// Mock data — will be replaced by API calls
-const mockPositions: Position[] = [
-  {
-    id: "1",
-    marketSlug: "selic-sobe-maio-2026",
-    marketTitle: "Selic sobe na reunião do Copom em maio?",
-    side: "yes",
-    quantity: 50,
-    avgPrice: 0.65,
-    currentPrice: 0.78,
-    pnl: 6.5,
-    pnlPercent: 20,
-  },
-  {
-    id: "2",
-    marketSlug: "brasil-copa-2026",
-    marketTitle: "Brasil ganha a Copa do Mundo 2026?",
-    side: "yes",
-    quantity: 100,
-    avgPrice: 0.22,
-    currentPrice: 0.19,
-    pnl: -3.0,
-    pnlPercent: -13.6,
-  },
-  {
-    id: "3",
-    marketSlug: "bitcoin-100k-junho",
-    marketTitle: "Bitcoin ultrapassa US$ 100k em junho?",
-    side: "no",
-    quantity: 30,
-    avgPrice: 0.55,
-    currentPrice: 0.62,
-    pnl: -2.1,
-    pnlPercent: -12.7,
-  },
-];
-
-const mockOrders: Order[] = [
-  {
-    id: "o1",
-    marketSlug: "selic-sobe-maio-2026",
-    marketTitle: "Selic sobe na reunião do Copom em maio?",
-    side: "yes",
-    type: "limit",
-    price: 0.7,
-    quantity: 25,
-    filledQuantity: 0,
-    status: "pending",
-    createdAt: "2026-03-28T14:30:00Z",
-  },
-  {
-    id: "o2",
-    marketSlug: "bitcoin-100k-junho",
-    marketTitle: "Bitcoin ultrapassa US$ 100k em junho?",
-    side: "no",
-    type: "limit",
-    price: 0.6,
-    quantity: 40,
-    filledQuantity: 15,
-    status: "partial",
-    createdAt: "2026-03-27T09:15:00Z",
-  },
-  {
-    id: "o3",
-    marketSlug: "brasil-copa-2026",
-    marketTitle: "Brasil ganha a Copa do Mundo 2026?",
-    side: "yes",
-    type: "market",
-    price: 0.22,
-    quantity: 100,
-    filledQuantity: 100,
-    status: "filled",
-    createdAt: "2026-03-25T11:00:00Z",
-  },
-];
-
-function PositionRow({ position }: { position: Position }) {
-  const isPositive = position.pnl >= 0;
+function PositionRow({ p }: { p: Position }) {
+  const isPositive = p.pnl >= 0;
   return (
     <Link
-      href={`/mercado/${position.marketSlug}`}
+      href={`/mercado/${p.market_slug}`}
       className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-lg border border-border bg-surface hover:border-border-strong hover:bg-surface-raised transition-all"
     >
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium text-text truncate">{position.marketTitle}</h4>
+        <h4 className="text-sm font-medium text-text truncate">{p.market_title}</h4>
         <div className="flex items-center gap-2 mt-1">
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-            position.side === "yes" ? "bg-up/10 text-up" : "bg-down/10 text-down"
+            p.side === "yes" ? "bg-up/10 text-up" : "bg-down/10 text-down"
           }`}>
-            {position.side === "yes" ? "Sim" : "Nao"}
+            {p.side === "yes" ? "Sim" : "Não"}
           </span>
-          <span className="text-xs text-text-tertiary">{position.quantity} contratos</span>
+          <span className="text-xs text-text-tertiary">{p.quantity} contratos</span>
         </div>
       </div>
       <div className="flex items-center gap-6 text-xs">
         <div className="text-right">
-          <p className="text-text-tertiary">Preco medio</p>
-          <p className="font-mono font-medium text-text">{formatCurrency(position.avgPrice)}</p>
+          <p className="text-text-tertiary">Preço médio</p>
+          <p className="font-mono font-medium text-text">{formatCurrency(p.avg_price)}</p>
         </div>
         <div className="text-right">
-          <p className="text-text-tertiary">Preco atual</p>
-          <p className="font-mono font-medium text-text">{formatCurrency(position.currentPrice)}</p>
+          <p className="text-text-tertiary">Preço atual</p>
+          <p className="font-mono font-medium text-text">{formatCurrency(p.current_price)}</p>
         </div>
         <div className="text-right min-w-[80px]">
           <p className="text-text-tertiary">PnL</p>
           <p className={`font-mono font-semibold ${isPositive ? "text-up" : "text-down"}`}>
-            {isPositive ? "+" : ""}{formatCurrency(position.pnl)}
-            <span className="text-[10px] ml-1">({isPositive ? "+" : ""}{position.pnlPercent.toFixed(1)}%)</span>
+            {isPositive ? "+" : ""}{formatCurrency(p.pnl)}
+            <span className="text-[10px] ml-1">({isPositive ? "+" : ""}{p.pnl_percent.toFixed(1)}%)</span>
           </p>
         </div>
       </div>
@@ -162,14 +85,14 @@ function OrderRow({ order }: { order: Order }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-lg border border-border bg-surface">
       <div className="flex-1 min-w-0">
-        <Link href={`/mercado/${order.marketSlug}`} className="text-sm font-medium text-text hover:text-accent truncate block">
-          {order.marketTitle}
+        <Link href={`/mercado/${order.market_slug}`} className="text-sm font-medium text-text hover:text-accent truncate block">
+          {order.market_title}
         </Link>
         <div className="flex items-center gap-2 mt-1">
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
             order.side === "yes" ? "bg-up/10 text-up" : "bg-down/10 text-down"
           }`}>
-            {order.side === "yes" ? "Sim" : "Nao"}
+            {order.side === "yes" ? "Sim" : "Não"}
           </span>
           <span className="text-xs text-text-tertiary uppercase">{order.type}</span>
           <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${status.className}`}>
@@ -179,13 +102,13 @@ function OrderRow({ order }: { order: Order }) {
       </div>
       <div className="flex items-center gap-6 text-xs">
         <div className="text-right">
-          <p className="text-text-tertiary">Preco</p>
+          <p className="text-text-tertiary">Preço</p>
           <p className="font-mono font-medium text-text">{formatCurrency(order.price)}</p>
         </div>
         <div className="text-right">
           <p className="text-text-tertiary">Qtd</p>
           <p className="font-mono font-medium text-text">
-            {order.filledQuantity}/{order.quantity}
+            {order.filled_quantity}/{order.quantity}
           </p>
         </div>
         <div className="text-right">
@@ -197,17 +120,47 @@ function OrderRow({ order }: { order: Order }) {
   );
 }
 
-export default async function PortfolioPage() {
-  // TODO: fetch from /api/portfolio and /api/orders
-  const positions = mockPositions;
-  const orders = mockOrders;
+export default function PortfolioPage() {
+  let isSignedIn = false;
+  try {
+    const authState = useAuth();
+    isSignedIn = !!authState.isSignedIn;
+  } catch {
+    // Clerk not configured
+  }
 
-  const totalPnl = positions.reduce((sum, p) => sum + p.pnl, 0);
-  const totalValue = positions.reduce((sum, p) => sum + p.currentPrice * p.quantity, 0);
+  const { data: portfolioData, isLoading: loadingPortfolio } = useQuery({
+    queryKey: ["portfolio"],
+    queryFn: () => fetch("/api/portfolio").then((r) => r.json()),
+    enabled: isSignedIn,
+  });
+
+  const { data: ordersData, isLoading: loadingOrders } = useQuery({
+    queryKey: ["orders"],
+    queryFn: () => fetch("/api/orders").then((r) => r.json()),
+    enabled: isSignedIn,
+  });
+
+  const isLoading = loadingPortfolio || loadingOrders;
+  const positions: Position[] = portfolioData?.positions ?? [];
+  const orders: Order[] = ordersData?.orders ?? [];
+
+  const totalPnl = positions.reduce((sum, p) => sum + (p.pnl ?? 0), 0);
+  const totalValue = positions.reduce((sum, p) => sum + (p.current_price ?? 0) * p.quantity, 0);
   const openOrders = orders.filter((o) => o.status === "pending" || o.status === "partial");
   const historyOrders = orders.filter((o) => o.status === "filled" || o.status === "cancelled");
 
-  const hasPositions = positions.length > 0;
+  if (!isSignedIn) {
+    return (
+      <div className="flex max-w-[1440px] mx-auto">
+        <Sidebar />
+        <main className="flex-1 min-w-0 px-4 md:px-6 py-5">
+          <h1 className="text-xl font-bold text-text mb-6">Portfolio</h1>
+          <EmptyState icon="bar-chart" title="Faça login" description="Entre na sua conta para ver seu portfolio." />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex max-w-[1440px] mx-auto">
@@ -215,19 +168,30 @@ export default async function PortfolioPage() {
       <main className="flex-1 min-w-0 px-4 md:px-6 py-5">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-text">Portfolio</h1>
-          <Link
-            href="/carteira"
-            className="text-sm text-accent hover:underline font-medium"
-          >
+          <Link href="/carteira" className="text-sm text-accent hover:underline font-medium">
             Ver carteira
           </Link>
         </div>
 
-        {!hasPositions ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 rounded-lg border border-border bg-surface">
+                  <Skeleton className="h-3 w-20 mb-2" />
+                  <Skeleton className="h-6 w-24" />
+                </div>
+              ))}
+            </div>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : positions.length === 0 && orders.length === 0 ? (
           <EmptyState
             icon="bar-chart"
-            title="Nenhuma posicao ainda"
-            description="Explore os mercados e faca sua primeira operacao para ver suas posicoes aqui."
+            title="Nenhuma posição ainda"
+            description="Explore os mercados e faça sua primeira operação para ver suas posições aqui."
           />
         ) : (
           <>
@@ -244,22 +208,24 @@ export default async function PortfolioPage() {
                 </p>
               </div>
               <div className="p-4 rounded-lg border border-border bg-surface">
-                <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Posicoes ativas</p>
+                <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Posições ativas</p>
                 <p className="text-lg font-mono font-bold text-text">{positions.length}</p>
               </div>
             </div>
 
             {/* Positions */}
-            <section className="mb-8">
-              <h2 className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-3">
-                Minhas posicoes
-              </h2>
-              <div className="space-y-2">
-                {positions.map((p) => (
-                  <PositionRow key={p.id} position={p} />
-                ))}
-              </div>
-            </section>
+            {positions.length > 0 && (
+              <section className="mb-8">
+                <h2 className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-3">
+                  Minhas posições
+                </h2>
+                <div className="space-y-2">
+                  {positions.map((p) => (
+                    <PositionRow key={p.market_id} p={p} />
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Open orders */}
             <section className="mb-8">
@@ -280,10 +246,10 @@ export default async function PortfolioPage() {
             {/* History */}
             <section>
               <h2 className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-3">
-                Historico
+                Histórico
               </h2>
               {historyOrders.length === 0 ? (
-                <p className="text-sm text-text-tertiary py-4">Nenhuma ordem no historico.</p>
+                <p className="text-sm text-text-tertiary py-4">Nenhuma ordem no histórico.</p>
               ) : (
                 <div className="space-y-2">
                   {historyOrders.map((o) => (

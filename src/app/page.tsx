@@ -7,6 +7,7 @@ import Link from "next/link";
 
 const tabs = [
   { label: "Em alta", tab: "trending" },
+  { label: "Diárias", href: "/diarias" },
   { label: "Novos", tab: "new" },
   { label: "Popular", tab: "popular" },
   { label: "Líquido", tab: "liquid" },
@@ -93,8 +94,8 @@ export default async function Home() {
           <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
             {tabs.map((tab, i) => (
               <Link
-                key={tab.tab}
-                href={`/explorar?tab=${tab.tab}`}
+                key={tab.label}
+                href={(tab as { href?: string }).href ?? `/explorar?tab=${(tab as { tab?: string }).tab}`}
                 className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   i === 0
                     ? "bg-accent/10 text-accent"

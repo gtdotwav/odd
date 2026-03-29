@@ -17,6 +17,7 @@ const sections: { title: string; items: SidebarItem[] }[] = [
       { href: "/", label: "Início", icon: "home" },
       { href: "/explorar", label: "Explorar", icon: "search" },
       { href: "/agora", label: "Agora", icon: "zap" },
+      { href: "/diarias", label: "Diárias", icon: "clock" },
     ],
   },
   {

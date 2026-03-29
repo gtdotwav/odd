@@ -1,37 +1,20 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
-import Icon from "@/components/Icon";
+import { Skeleton } from "@/components/Skeleton";
 import { formatCurrency, formatVolume } from "@/lib/utils";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "Rankings",
-  description: "Ranking dos melhores traders nos mercados de previsao da Odd.",
-};
-
 interface RankedUser {
-  rank: number;
+  user_id: string;
   handle: string;
-  displayName: string;
-  avatarInitial: string;
-  volume: number;
-  trades: number;
-  pnl: number;
-  winRate: number;
+  display_name: string;
+  avatar_url: string | null;
+  total_volume: number;
+  total_trades: number;
+  total_pnl: number;
 }
-
-const mockLeaderboard: RankedUser[] = [
-  { rank: 1, handle: "carla_invest", displayName: "Carla Mendes", avatarInitial: "C", volume: 892000, trades: 342, pnl: 12450, winRate: 0.68 },
-  { rank: 2, handle: "trader_rj", displayName: "Rafael Oliveira", avatarInitial: "R", volume: 745000, trades: 289, pnl: 9830, winRate: 0.64 },
-  { rank: 3, handle: "ana_sp", displayName: "Ana Costa", avatarInitial: "A", volume: 623000, trades: 215, pnl: 7200, winRate: 0.61 },
-  { rank: 4, handle: "marcos_bh", displayName: "Marcos Silva", avatarInitial: "M", volume: 510000, trades: 198, pnl: 5600, winRate: 0.59 },
-  { rank: 5, handle: "julia_macro", displayName: "Julia Ferreira", avatarInitial: "J", volume: 489000, trades: 176, pnl: 4300, winRate: 0.57 },
-  { rank: 6, handle: "pedro_cripto", displayName: "Pedro Santos", avatarInitial: "P", volume: 412000, trades: 154, pnl: 3100, winRate: 0.55 },
-  { rank: 7, handle: "lucas_fut", displayName: "Lucas Pereira", avatarInitial: "L", volume: 378000, trades: 143, pnl: 2800, winRate: 0.54 },
-  { rank: 8, handle: "bia_politics", displayName: "Beatriz Lima", avatarInitial: "B", volume: 345000, trades: 132, pnl: 2200, winRate: 0.53 },
-  { rank: 9, handle: "diego_trade", displayName: "Diego Almeida", avatarInitial: "D", volume: 298000, trades: 121, pnl: 1850, winRate: 0.52 },
-  { rank: 10, handle: "fernanda_mk", displayName: "Fernanda Rocha", avatarInitial: "F", volume: 267000, trades: 109, pnl: 1500, winRate: 0.51 },
-];
 
 const podiumColors = ["bg-amber-400", "bg-gray-300", "bg-amber-600"];
 const podiumTextColors = ["text-amber-600", "text-gray-500", "text-amber-700"];
@@ -43,34 +26,40 @@ function TopThreeCard({ user, index }: { user: RankedUser; index: number }) {
       className="flex flex-col items-center p-5 rounded-xl border border-border bg-surface hover:border-border-strong hover:shadow-md transition-all"
     >
       <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white mb-3 ${podiumColors[index]}`}>
-        {user.avatarInitial}
+        {user.display_name?.[0]?.toUpperCase() ?? "U"}
       </div>
       <span className={`text-xs font-bold mb-1 ${podiumTextColors[index]}`}>
-        #{user.rank}
+        #{index + 1}
       </span>
-      <h3 className="text-sm font-semibold text-text">{user.displayName}</h3>
+      <h3 className="text-sm font-semibold text-text">{user.display_name}</h3>
       <p className="text-xs text-text-tertiary mb-3">@{user.handle}</p>
       <div className="w-full space-y-1.5">
         <div className="flex justify-between text-xs">
           <span className="text-text-tertiary">PnL</span>
-          <span className="font-mono font-semibold text-up">+{formatCurrency(user.pnl)}</span>
+          <span className={`font-mono font-semibold ${user.total_pnl >= 0 ? "text-up" : "text-down"}`}>
+            {user.total_pnl >= 0 ? "+" : ""}{formatCurrency(user.total_pnl)}
+          </span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-text-tertiary">Volume</span>
-          <span className="font-mono font-medium text-text">{formatVolume(user.volume)}</span>
+          <span className="font-mono font-medium text-text">{formatVolume(user.total_volume)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-text-tertiary">Win rate</span>
-          <span className="font-mono font-medium text-text">{(user.winRate * 100).toFixed(0)}%</span>
+          <span className="text-text-tertiary">Trades</span>
+          <span className="font-mono font-medium text-text">{user.total_trades}</span>
         </div>
       </div>
     </Link>
   );
 }
 
-export default async function RankingsPage() {
-  // TODO: fetch from /api/leaderboard
-  const leaderboard = mockLeaderboard;
+export default function RankingsPage() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["leaderboard"],
+    queryFn: () => fetch("/api/leaderboard").then((r) => r.json()),
+  });
+
+  const leaderboard: RankedUser[] = data?.leaderboard ?? [];
   const topThree = leaderboard.slice(0, 3);
   const rest = leaderboard.slice(3);
 
@@ -83,48 +72,72 @@ export default async function RankingsPage() {
           <span className="text-xs text-text-tertiary">Top traders por PnL</span>
         </div>
 
-        {/* Top 3 podium */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-          {topThree.map((user, i) => (
-            <TopThreeCard key={user.handle} user={user} index={i} />
-          ))}
-        </div>
-
-        {/* Remaining table */}
-        <div className="rounded-lg border border-border bg-surface overflow-hidden">
-          {/* Header */}
-          <div className="hidden sm:grid grid-cols-[3rem_1fr_6rem_5rem_7rem_5rem] gap-4 px-4 py-2.5 border-b border-border bg-surface-raised text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-            <span>#</span>
-            <span>Trader</span>
-            <span className="text-right">Volume</span>
-            <span className="text-right">Trades</span>
-            <span className="text-right">PnL</span>
-            <span className="text-right">Win %</span>
+        {isLoading ? (
+          <div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-5 rounded-xl border border-border bg-surface flex flex-col items-center">
+                  <Skeleton className="w-14 h-14 rounded-full mb-3" />
+                  <Skeleton className="h-4 w-20 mb-1" />
+                  <Skeleton className="h-3 w-16 mb-3" />
+                  <Skeleton className="h-3 w-full mb-1" />
+                  <Skeleton className="h-3 w-full mb-1" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              ))}
+            </div>
+            {Array.from({ length: 7 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg mb-1" />
+            ))}
           </div>
-          {/* Rows */}
-          {rest.map((user) => (
-            <Link
-              key={user.handle}
-              href={`/u/${user.handle}`}
-              className="grid grid-cols-[3rem_1fr_6rem_5rem_7rem_5rem] gap-4 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-raised transition-colors items-center"
-            >
-              <span className="text-sm font-mono font-medium text-text-tertiary">{user.rank}</span>
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent shrink-0">
-                  {user.avatarInitial}
+        ) : leaderboard.length === 0 ? (
+          <p className="text-sm text-text-tertiary py-8 text-center">Nenhum trader no ranking ainda.</p>
+        ) : (
+          <>
+            {/* Top 3 podium */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+              {topThree.map((user, i) => (
+                <TopThreeCard key={user.user_id} user={user} index={i} />
+              ))}
+            </div>
+
+            {/* Remaining table */}
+            {rest.length > 0 && (
+              <div className="rounded-lg border border-border bg-surface overflow-hidden">
+                <div className="hidden sm:grid grid-cols-[3rem_1fr_6rem_5rem_7rem] gap-4 px-4 py-2.5 border-b border-border bg-surface-raised text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                  <span>#</span>
+                  <span>Trader</span>
+                  <span className="text-right">Volume</span>
+                  <span className="text-right">Trades</span>
+                  <span className="text-right">PnL</span>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text truncate">{user.displayName}</p>
-                  <p className="text-xs text-text-tertiary">@{user.handle}</p>
-                </div>
+                {rest.map((user, i) => (
+                  <Link
+                    key={user.user_id}
+                    href={`/u/${user.handle}`}
+                    className="grid grid-cols-[3rem_1fr_6rem_5rem_7rem] gap-4 px-4 py-3 border-b border-border last:border-0 hover:bg-surface-raised transition-colors items-center"
+                  >
+                    <span className="text-sm font-mono font-medium text-text-tertiary">{i + 4}</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent shrink-0">
+                        {user.display_name?.[0]?.toUpperCase() ?? "U"}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text truncate">{user.display_name}</p>
+                        <p className="text-xs text-text-tertiary">@{user.handle}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono text-text text-right">{formatVolume(user.total_volume)}</span>
+                    <span className="text-xs font-mono text-text text-right">{user.total_trades}</span>
+                    <span className={`text-xs font-mono font-semibold text-right ${user.total_pnl >= 0 ? "text-up" : "text-down"}`}>
+                      {user.total_pnl >= 0 ? "+" : ""}{formatCurrency(user.total_pnl)}
+                    </span>
+                  </Link>
+                ))}
               </div>
-              <span className="text-xs font-mono text-text text-right">{formatVolume(user.volume)}</span>
-              <span className="text-xs font-mono text-text text-right">{user.trades}</span>
-              <span className="text-xs font-mono font-semibold text-up text-right">+{formatCurrency(user.pnl)}</span>
-              <span className="text-xs font-mono text-text text-right">{(user.winRate * 100).toFixed(0)}%</span>
-            </Link>
-          ))}
-        </div>
+            )}
+          </>
+        )}
       </main>
     </div>
   );

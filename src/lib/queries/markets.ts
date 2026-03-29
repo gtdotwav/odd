@@ -244,6 +244,25 @@ export async function getFeaturedMarket(): Promise<Market | null> {
   return mapRow(data as MarketWithJoins);
 }
 
+export async function getDailyMarkets(): Promise<Market[]> {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const limit48h = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase
+    .from("markets")
+    .select(JOINED_SELECT)
+    .gte("resolution_date", now)
+    .lte("resolution_date", limit48h)
+    .in("status", ["active", "live", "closing"])
+    .order("resolution_date", { ascending: true })
+    .limit(50) as any);
+
+  if (error || !data) return [];
+  return (data as MarketWithJoins[]).map(mapRow);
+}
+
 export async function getStats(): Promise<{ totalVolume: number; activeCount: number }> {
   const supabase = await createClient();
 

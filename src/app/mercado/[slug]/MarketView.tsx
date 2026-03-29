@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Icon, { categoryIcons } from "@/components/Icon";
 import ProbChart from "@/components/ProbChart";
 import type { MarketDetail } from "@/types/market";
-import { formatVolume, formatVariation } from "@/lib/utils";
+import { formatVolume, formatVariation, formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
 
 const MIN_AMOUNT = 1;
@@ -13,6 +16,16 @@ const MAX_AMOUNT = 100000;
 function TradeTicket({ market }: { market: MarketDetail }) {
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  let isSignedIn = false;
+  try {
+    const authState = useAuth();
+    isSignedIn = !!authState.isSignedIn;
+  } catch {
+    // Clerk not configured
+  }
+
   const price = side === "yes" ? market.priceYes : market.priceNo;
   const numAmount = parseFloat(amount) || 0;
   const qty = numAmount > 0 ? Math.floor(numAmount / price) : 0;
@@ -24,6 +37,40 @@ function TradeTicket({ market }: { market: MarketDetail }) {
   const tooHigh = numAmount > MAX_AMOUNT;
   const validAmount = numAmount >= MIN_AMOUNT && numAmount <= MAX_AMOUNT;
   const error = tooLow ? `Mínimo R$ ${MIN_AMOUNT}` : tooHigh ? `Máximo R$ ${MAX_AMOUNT.toLocaleString("pt-BR")}` : null;
+
+  const handleBuy = async () => {
+    if (!isSignedIn) {
+      toast.error("Faça login para negociar");
+      return;
+    }
+    if (!validAmount || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          market_id: market.id,
+          side,
+          type: "market",
+          price,
+          quantity: qty,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || data.error || "Erro ao criar ordem");
+      } else {
+        toast.success(`Ordem criada — ${qty} contratos ${side === "yes" ? "Sim" : "Não"}`);
+        setAmount("");
+      }
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-surface rounded-lg border border-border p-4">
@@ -105,10 +152,17 @@ function TradeTicket({ market }: { market: MarketDetail }) {
 
       <button
         type="button"
-        disabled={!validAmount}
+        disabled={!validAmount || isSubmitting}
+        onClick={handleBuy}
         className="w-full py-2.5 rounded-md bg-highlight hover:bg-highlight-hover disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors"
       >
-        {!amount ? "Insira um valor" : !validAmount ? "Valor inválido" : `Comprar ${side === "yes" ? "Sim" : "Não"} · R$ ${numAmount.toFixed(2)}`}
+        {isSubmitting
+          ? "Processando..."
+          : !amount
+          ? "Insira um valor"
+          : !validAmount
+          ? "Valor inválido"
+          : `Comprar ${side === "yes" ? "Sim" : "Não"} · R$ ${numAmount.toFixed(2)}`}
       </button>
 
       <button type="button" className="flex items-center justify-center gap-1.5 w-full mt-2 py-2 text-xs text-text-tertiary hover:text-text-secondary transition-colors">
@@ -121,10 +175,61 @@ function TradeTicket({ market }: { market: MarketDetail }) {
 
 const MAX_COMMENT_LENGTH = 500;
 
-function CommentInput() {
+interface CommentData {
+  id: string;
+  text: string;
+  like_count: number;
+  liked_by_me: boolean;
+  created_at: string;
+  user: {
+    handle: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+}
+
+function CommentInput({ marketId, onSuccess }: { marketId: string; onSuccess: () => void }) {
   const [text, setText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const remaining = MAX_COMMENT_LENGTH - text.length;
   const overLimit = remaining < 0;
+
+  let isSignedIn = false;
+  try {
+    const authState = useAuth();
+    isSignedIn = !!authState.isSignedIn;
+  } catch {
+    // Clerk not configured
+  }
+
+  const handleSubmit = async () => {
+    if (!isSignedIn) {
+      toast.error("Faça login para comentar");
+      return;
+    }
+    if (!text.trim() || overLimit || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market_id: marketId, text: text.trim() }),
+      });
+      if (res.ok) {
+        setText("");
+        toast.success("Comentário publicado");
+        onSuccess();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Erro ao publicar comentário");
+      }
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="mt-4">
@@ -145,10 +250,11 @@ function CommentInput() {
         </span>
         <button
           type="button"
-          disabled={!text.trim() || overLimit}
+          disabled={!text.trim() || overLimit || isSubmitting}
+          onClick={handleSubmit}
           className="px-3 py-1 rounded-md bg-accent text-white text-xs font-semibold disabled:bg-surface-raised disabled:text-text-tertiary transition-colors"
         >
-          Comentar
+          {isSubmitting ? "Enviando..." : "Comentar"}
         </button>
       </div>
     </div>
@@ -156,53 +262,114 @@ function CommentInput() {
 }
 
 function Comments({ marketId }: { marketId: string }) {
-  // TODO: fetch from /api/comments?market_id=...
-  const comments = [
-    { handle: "@ana_macro", badge: "Top 5% Macro", badgeIcon: "building", text: "Dados de emprego da semana passada reforçam tese hawkish. IPCA-15 veio acima do consenso. Difícil ver BCB segurando.", likes: 42, time: "2h" },
-    { handle: "@selic_bear", badge: "Analista", badgeIcon: "trend-up", text: "Mercado de DI já precifica 85% de alta de 50bps. A questão é se será 50 ou 75.", likes: 28, time: "4h" },
-    { handle: "@joao_trader", badge: "", badgeIcon: "", text: "Comprei Sim a 0,65, não pretendo vender antes da decisão. Convicção alta.", likes: 15, time: "8h" },
-  ];
+  const { data, refetch } = useQuery({
+    queryKey: ["comments", marketId],
+    queryFn: () => fetch(`/api/comments?market_id=${marketId}`).then((r) => r.json()),
+  });
+
+  const comments: CommentData[] = data?.comments ?? [];
+
+  const handleLike = async (commentId: string) => {
+    try {
+      await fetch(`/api/comments/${commentId}/like`, { method: "POST" });
+      refetch();
+    } catch {
+      toast.error("Erro ao curtir");
+    }
+  };
 
   return (
     <div className="bg-surface rounded-lg border border-border p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold">Comentários</h3>
-        <div className="flex gap-1">
-          <button type="button" className="px-2 py-1 rounded text-xs font-medium bg-accent/10 text-accent">Relevantes</button>
-          <button type="button" className="px-2 py-1 rounded text-xs font-medium text-text-tertiary hover:text-text-secondary">Recentes</button>
-        </div>
+        <span className="text-xs text-text-tertiary">{comments.length}</span>
       </div>
 
-      <div className="space-y-4">
-        {comments.map((c, i) => (
-          <div key={i} className="pb-4 border-b border-border last:border-0 last:pb-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] text-accent font-bold">
-                {c.handle[1].toUpperCase()}
+      {comments.length === 0 ? (
+        <p className="text-sm text-text-tertiary py-4 text-center">Nenhum comentário ainda. Seja o primeiro!</p>
+      ) : (
+        <div className="space-y-4">
+          {comments.map((c) => (
+            <div key={c.id} className="pb-4 border-b border-border last:border-0 last:pb-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] text-accent font-bold">
+                  {c.user.display_name?.[0]?.toUpperCase() ?? "U"}
+                </div>
+                <span className="text-sm font-medium text-accent">@{c.user.handle}</span>
+                <span className="text-[10px] text-text-tertiary ml-auto">{formatRelativeTime(c.created_at)}</span>
               </div>
-              <span className="text-sm font-medium text-accent">{c.handle}</span>
-              {c.badge && (
-                <span className="flex items-center gap-1 text-[10px] text-text-tertiary">
-                  <Icon name={c.badgeIcon} className="w-3 h-3 opacity-50" />
-                  {c.badge}
-                </span>
-              )}
-              <span className="text-[10px] text-text-tertiary ml-auto">{c.time}</span>
+              <p className="text-sm text-text-secondary leading-relaxed ml-8">{c.text}</p>
+              <div className="flex items-center gap-3 mt-2 ml-8">
+                <button
+                  type="button"
+                  onClick={() => handleLike(c.id)}
+                  className={`flex items-center gap-1 text-xs transition-colors ${
+                    c.liked_by_me ? "text-accent" : "text-text-tertiary hover:text-text-secondary"
+                  }`}
+                >
+                  <Icon name="thumbs-up" className="w-3 h-3" />
+                  {c.like_count}
+                </button>
+              </div>
             </div>
-            <p className="text-sm text-text-secondary leading-relaxed ml-8">{c.text}</p>
-            <div className="flex items-center gap-3 mt-2 ml-8">
-              <button type="button" className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary">
-                <Icon name="thumbs-up" className="w-3 h-3" />
-                {c.likes}
-              </button>
-              <button type="button" className="text-xs text-text-tertiary hover:text-text-secondary">Responder</button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      <CommentInput />
+      <CommentInput marketId={marketId} onSuccess={() => refetch()} />
     </div>
+  );
+}
+
+function WatchlistButton({ marketId }: { marketId: string }) {
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleToggle = async () => {
+    let isSignedIn = false;
+    try {
+      // Check will be done server-side; if 401, show toast
+    } catch {
+      // noop
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market_id: marketId }),
+      });
+      if (res.status === 401) {
+        toast.error("Faça login para seguir mercados");
+      } else if (res.ok) {
+        const data = await res.json();
+        setIsInWatchlist(data.action === "added");
+        toast.success(data.action === "added" ? "Adicionado à watchlist" : "Removido da watchlist");
+        queryClient.invalidateQueries({ queryKey: ["watchlist"] });
+      }
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggle}
+      disabled={isLoading}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs transition-colors ${
+        isInWatchlist
+          ? "border-accent bg-accent/10 text-accent"
+          : "border-border text-text-secondary hover:text-text hover:border-border-strong"
+      }`}
+    >
+      <Icon name="star" className="w-3.5 h-3.5" />
+      {isInWatchlist ? "Seguindo" : "Seguir"}
+    </button>
   );
 }
 
@@ -238,15 +405,19 @@ export default function MarketView({ market }: { market: MarketDetail }) {
         </div>
 
         <div className="flex items-center gap-2 mt-3">
-          <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-text hover:border-border-strong transition-colors">
-            <Icon name="star" className="w-3.5 h-3.5" />
-            Seguir
-          </button>
+          <WatchlistButton marketId={market.id} />
           <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-text hover:border-border-strong transition-colors">
             <Icon name="bell" className="w-3.5 h-3.5" />
             Alertar
           </button>
-          <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-text hover:border-border-strong transition-colors">
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              toast.success("Link copiado!");
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-text hover:border-border-strong transition-colors"
+          >
             <Icon name="share" className="w-3.5 h-3.5" />
             Compartilhar
           </button>

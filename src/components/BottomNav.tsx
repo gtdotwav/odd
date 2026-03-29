@@ -8,6 +8,7 @@ const items = [
   { href: "/", label: "Início", icon: "home" },
   { href: "/explorar", label: "Explorar", icon: "compass" },
   { href: "/agora", label: "Agora", icon: "zap" },
+  { href: "/diarias", label: "Diárias", icon: "clock" },
   { href: "/portfolio", label: "Portfolio", icon: "bar-chart" },
 ];
 

@@ -1,99 +1,46 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Sidebar from "@/components/Sidebar";
 import EmptyState from "@/components/EmptyState";
 import Icon from "@/components/Icon";
+import { Skeleton } from "@/components/Skeleton";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
-
-export const metadata: Metadata = {
-  title: "Carteira",
-  description: "Gerencie seu saldo, depositos e saques na Odd.",
-};
 
 interface Transaction {
   id: string;
-  type: "deposit" | "withdraw" | "trade_buy" | "trade_sell" | "payout" | "fee";
+  type: string;
   description: string;
   amount: number;
-  date: string;
-  status: "completed" | "pending" | "failed";
+  balance_after: number;
+  status: string;
+  created_at: string;
+}
+
+interface WalletData {
+  balance: number;
+  currency: string;
+  transactions: Transaction[];
 }
 
 const typeConfig: Record<string, { icon: string; label: string; className: string }> = {
-  deposit: { icon: "trend-up", label: "Deposito", className: "text-up" },
-  withdraw: { icon: "share", label: "Saque", className: "text-down" },
+  deposit: { icon: "trend-up", label: "Depósito", className: "text-up" },
+  withdrawal: { icon: "share", label: "Saque", className: "text-down" },
   trade_buy: { icon: "zap", label: "Compra", className: "text-down" },
   trade_sell: { icon: "zap", label: "Venda", className: "text-up" },
   payout: { icon: "gift", label: "Pagamento", className: "text-up" },
   fee: { icon: "shield", label: "Taxa", className: "text-down" },
+  refund: { icon: "gift", label: "Reembolso", className: "text-up" },
 };
 
 const statusLabels: Record<string, { label: string; className: string }> = {
-  completed: { label: "Concluido", className: "bg-up/10 text-up" },
+  completed: { label: "Concluído", className: "bg-up/10 text-up" },
   pending: { label: "Pendente", className: "bg-neutral-warn/15 text-neutral-warn" },
   failed: { label: "Falhou", className: "bg-down/10 text-down" },
 };
-
-// Mock data
-const mockBalance = 1247.83;
-
-const mockTransactions: Transaction[] = [
-  {
-    id: "t1",
-    type: "deposit",
-    description: "Deposito via Pix",
-    amount: 500.0,
-    date: "2026-03-28T16:00:00Z",
-    status: "completed",
-  },
-  {
-    id: "t2",
-    type: "trade_buy",
-    description: "Compra 50x Sim — Selic sobe maio?",
-    amount: -32.5,
-    date: "2026-03-28T14:30:00Z",
-    status: "completed",
-  },
-  {
-    id: "t3",
-    type: "fee",
-    description: "Taxa de operacao",
-    amount: -0.65,
-    date: "2026-03-28T14:30:00Z",
-    status: "completed",
-  },
-  {
-    id: "t4",
-    type: "trade_sell",
-    description: "Venda 20x Nao — Bitcoin 100k junho?",
-    amount: 11.0,
-    date: "2026-03-27T10:15:00Z",
-    status: "completed",
-  },
-  {
-    id: "t5",
-    type: "payout",
-    description: "Pagamento — Lula veta marco temporal?",
-    amount: 85.0,
-    date: "2026-03-26T08:00:00Z",
-    status: "completed",
-  },
-  {
-    id: "t6",
-    type: "withdraw",
-    description: "Saque via Pix",
-    amount: -200.0,
-    date: "2026-03-25T12:00:00Z",
-    status: "completed",
-  },
-  {
-    id: "t7",
-    type: "deposit",
-    description: "Deposito via Pix",
-    amount: 1000.0,
-    date: "2026-03-20T09:00:00Z",
-    status: "completed",
-  },
-];
 
 function TransactionRow({ tx }: { tx: Transaction }) {
   const config = typeConfig[tx.type] ?? typeConfig.deposit;
@@ -110,7 +57,7 @@ function TransactionRow({ tx }: { tx: Transaction }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-text truncate">{tx.description}</p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-text-tertiary">{formatRelativeTime(tx.date)}</span>
+          <span className="text-xs text-text-tertiary">{formatRelativeTime(tx.created_at)}</span>
           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${status.className}`}>
             {status.label}
           </span>
@@ -123,10 +70,209 @@ function TransactionRow({ tx }: { tx: Transaction }) {
   );
 }
 
-export default async function CarteiraPage() {
-  // TODO: fetch from /api/wallet and /api/wallet/transactions
-  const balance = mockBalance;
-  const transactions = mockTransactions;
+function DepositModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [amount, setAmount] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const numAmount = parseFloat(amount) || 0;
+
+  const handleDeposit = async () => {
+    if (numAmount < 5 || numAmount > 50000 || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/wallet/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: numAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || data.error || "Erro ao depositar");
+      } else {
+        toast.success(`Depósito de ${formatCurrency(numAmount)} realizado`);
+        onSuccess();
+        onClose();
+      }
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-surface rounded-xl border border-border p-6 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-text">Depositar</h2>
+          <button type="button" onClick={onClose} className="text-text-tertiary hover:text-text">
+            <Icon name="x" className="w-5 h-5" />
+          </button>
+        </div>
+
+        <p className="text-xs text-neutral-warn bg-neutral-warn/10 rounded-md px-3 py-2 mb-4">
+          Ambiente de testes — saldo adicionado diretamente.
+        </p>
+
+        <label className="block text-xs text-text-secondary mb-1.5">Valor do depósito</label>
+        <div className="relative mb-3">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">R$</span>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0,00"
+            className="w-full pl-9 pr-3 py-2.5 rounded-md border border-border bg-surface-raised text-text font-mono text-sm focus:outline-none focus:border-accent"
+          />
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          {["50", "100", "500", "1000"].map((v) => (
+            <button type="button" key={v} onClick={() => setAmount(v)} className="flex-1 py-1.5 rounded text-xs font-medium border border-border text-text-secondary hover:border-border-strong hover:text-text transition-colors">
+              R${v}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          disabled={numAmount < 5 || numAmount > 50000 || isSubmitting}
+          onClick={handleDeposit}
+          className="w-full py-2.5 rounded-md bg-highlight hover:bg-highlight-hover disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors"
+        >
+          {isSubmitting ? "Processando..." : numAmount > 0 ? `Depositar ${formatCurrency(numAmount)}` : "Insira um valor"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WithdrawModal({ onClose, onSuccess, balance }: { onClose: () => void; onSuccess: () => void; balance: number }) {
+  const [amount, setAmount] = useState("");
+  const [pixKey, setPixKey] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const numAmount = parseFloat(amount) || 0;
+
+  const handleWithdraw = async () => {
+    if (numAmount < 10 || numAmount > balance || !pixKey.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: numAmount, pix_key: pixKey.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || data.error || "Erro ao sacar");
+      } else {
+        toast.success(`Saque de ${formatCurrency(numAmount)} solicitado`);
+        onSuccess();
+        onClose();
+      }
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-surface rounded-xl border border-border p-6 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-text">Sacar</h2>
+          <button type="button" onClick={onClose} className="text-text-tertiary hover:text-text">
+            <Icon name="x" className="w-5 h-5" />
+          </button>
+        </div>
+
+        <p className="text-xs text-text-tertiary mb-4">
+          Saldo disponível: <span className="font-mono font-semibold text-text">{formatCurrency(balance)}</span>
+        </p>
+
+        <label className="block text-xs text-text-secondary mb-1.5">Valor do saque</label>
+        <div className="relative mb-3">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">R$</span>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0,00"
+            className="w-full pl-9 pr-3 py-2.5 rounded-md border border-border bg-surface-raised text-text font-mono text-sm focus:outline-none focus:border-accent"
+          />
+        </div>
+
+        <label className="block text-xs text-text-secondary mb-1.5">Chave Pix</label>
+        <input
+          type="text"
+          value={pixKey}
+          onChange={(e) => setPixKey(e.target.value)}
+          placeholder="CPF, e-mail, telefone ou chave aleatória"
+          className="w-full px-3 py-2.5 rounded-md border border-border bg-surface-raised text-text text-sm focus:outline-none focus:border-accent mb-4"
+        />
+
+        {numAmount > balance && (
+          <p className="text-[11px] text-down mb-3">Saldo insuficiente</p>
+        )}
+
+        <button
+          type="button"
+          disabled={numAmount < 10 || numAmount > balance || !pixKey.trim() || isSubmitting}
+          onClick={handleWithdraw}
+          className="w-full py-2.5 rounded-md bg-highlight hover:bg-highlight-hover disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors"
+        >
+          {isSubmitting ? "Processando..." : numAmount > 0 ? `Sacar ${formatCurrency(numAmount)}` : "Insira um valor"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function CarteiraPage() {
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  let isSignedIn = false;
+  try {
+    const authState = useAuth();
+    isSignedIn = !!authState.isSignedIn;
+  } catch {
+    // Clerk not configured
+  }
+
+  const { data, isLoading } = useQuery<WalletData>({
+    queryKey: ["wallet"],
+    queryFn: () => fetch("/api/wallet").then((r) => r.json()),
+    enabled: isSignedIn,
+  });
+
+  const balance = data?.balance ?? 0;
+  const transactions = data?.transactions ?? [];
+
+  const totalDeposited = transactions
+    .filter((t) => t.type === "deposit" && t.status === "completed")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalWithdrawn = transactions
+    .filter((t) => t.type === "withdrawal" && t.status === "completed")
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const inPositions = transactions
+    .filter((t) => t.type === "trade_buy" && t.status === "completed")
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["wallet"] });
+
+  if (!isSignedIn) {
+    return (
+      <div className="flex max-w-[1440px] mx-auto">
+        <Sidebar />
+        <main className="flex-1 min-w-0 px-4 md:px-6 py-5">
+          <h1 className="text-xl font-bold text-text mb-6">Carteira</h1>
+          <EmptyState icon="gift" title="Faça login" description="Entre na sua conta para acessar sua carteira." />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex max-w-[1440px] mx-auto">
@@ -136,17 +282,23 @@ export default async function CarteiraPage() {
 
         {/* Balance card */}
         <div className="p-6 rounded-xl border border-border bg-gradient-to-br from-accent/5 via-surface to-surface mb-6">
-          <p className="text-xs uppercase tracking-wider text-text-tertiary mb-1">Saldo disponivel</p>
-          <p className="text-3xl font-mono font-bold text-text mb-4">{formatCurrency(balance)}</p>
+          <p className="text-xs uppercase tracking-wider text-text-tertiary mb-1">Saldo disponível</p>
+          {isLoading ? (
+            <Skeleton className="h-9 w-40 mb-4" />
+          ) : (
+            <p className="text-3xl font-mono font-bold text-text mb-4">{formatCurrency(balance)}</p>
+          )}
           <div className="flex gap-3">
             <button
               type="button"
+              onClick={() => setDepositOpen(true)}
               className="px-5 py-2.5 rounded-lg bg-highlight hover:bg-highlight-hover text-white text-sm font-semibold transition-colors"
             >
               Depositar
             </button>
             <button
               type="button"
+              onClick={() => setWithdrawOpen(true)}
               className="px-5 py-2.5 rounded-lg border border-border text-text-secondary hover:text-text hover:border-border-strong text-sm font-medium transition-colors"
             >
               Sacar
@@ -157,29 +309,35 @@ export default async function CarteiraPage() {
         {/* Quick info */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
           <div className="p-4 rounded-lg border border-border bg-surface">
-            <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Em posicoes</p>
-            <p className="text-lg font-mono font-bold text-text">{formatCurrency(84.2)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Em posições</p>
+            {isLoading ? <Skeleton className="h-6 w-20" /> : <p className="text-lg font-mono font-bold text-text">{formatCurrency(inPositions)}</p>}
           </div>
           <div className="p-4 rounded-lg border border-border bg-surface">
             <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Total depositado</p>
-            <p className="text-lg font-mono font-bold text-text">{formatCurrency(1500.0)}</p>
+            {isLoading ? <Skeleton className="h-6 w-20" /> : <p className="text-lg font-mono font-bold text-text">{formatCurrency(totalDeposited)}</p>}
           </div>
           <div className="p-4 rounded-lg border border-border bg-surface">
             <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Total sacado</p>
-            <p className="text-lg font-mono font-bold text-text">{formatCurrency(200.0)}</p>
+            {isLoading ? <Skeleton className="h-6 w-20" /> : <p className="text-lg font-mono font-bold text-text">{formatCurrency(totalWithdrawn)}</p>}
           </div>
         </div>
 
         {/* Transaction history */}
         <section>
           <h2 className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-3">
-            Historico de transacoes
+            Histórico de transações
           </h2>
-          {transactions.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : transactions.length === 0 ? (
             <EmptyState
               icon="bar-chart"
-              title="Nenhuma transacao"
-              description="Faca um deposito para comecar a negociar."
+              title="Nenhuma transação"
+              description="Faça um depósito para começar a negociar."
             />
           ) : (
             <div className="space-y-2">
@@ -190,6 +348,9 @@ export default async function CarteiraPage() {
           )}
         </section>
       </main>
+
+      {depositOpen && <DepositModal onClose={() => setDepositOpen(false)} onSuccess={refresh} />}
+      {withdrawOpen && <WithdrawModal onClose={() => setWithdrawOpen(false)} onSuccess={refresh} balance={balance} />}
     </div>
   );
 }
