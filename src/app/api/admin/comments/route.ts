@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getAdminClerkId } from "@/lib/admin-auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(req: Request) {
-  let userId: string | null = null;
-  try {
-    const session = await auth();
-    userId = session.userId;
-  } catch {
-    // Clerk not configured
-  }
+  const userId = await getAdminClerkId();
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

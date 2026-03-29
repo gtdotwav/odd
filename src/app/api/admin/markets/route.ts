@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getAdminClerkId } from "@/lib/admin-auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
@@ -26,13 +26,7 @@ const createMarketSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  let userId: string | null = null;
-  try {
-    const session = await auth();
-    userId = session.userId;
-  } catch {
-    // Clerk not configured
-  }
+  const userId = await getAdminClerkId();
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -77,13 +71,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  let userId: string | null = null;
-  try {
-    const session = await auth();
-    userId = session.userId;
-  } catch {
-    // Clerk not configured
-  }
+  const userId = await getAdminClerkId();
   if (!userId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

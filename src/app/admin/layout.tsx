@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 
 const navSections = [
@@ -26,11 +26,62 @@ const navSections = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  const isLoginPage = pathname === "/admin/login";
+
+  useEffect(() => {
+    if (isLoginPage) {
+      setAuthChecked(true);
+      return;
+    }
+
+    fetch("/api/admin/auth")
+      .then((res) => {
+        if (res.ok) {
+          setAuthenticated(true);
+        } else {
+          router.replace("/admin/login");
+        }
+      })
+      .catch(() => {
+        router.replace("/admin/login");
+      })
+      .finally(() => {
+        setAuthChecked(true);
+      });
+  }, [isLoginPage, router]);
+
+  // Login page renders without admin shell
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  // Loading auth check
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-ink flex items-center justify-center">
+        <span className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Not authenticated — will redirect
+  if (!authenticated) {
+    return null;
+  }
 
   function isActive(href: string) {
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
+  }
+
+  async function handleLogout() {
+    await fetch("/api/admin/auth", { method: "DELETE" });
+    router.replace("/admin/login");
   }
 
   const sidebarContent = (
@@ -75,7 +126,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ))}
       </nav>
 
-      <div className="px-3 py-4 border-t border-white/10">
+      <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
         <Link
           href="/"
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
@@ -83,6 +134,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Icon name="external-link" className="w-[18px] h-[18px]" />
           Voltar ao site
         </Link>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white/70 hover:text-down hover:bg-down/10 transition-colors"
+        >
+          <Icon name="log-out" className="w-[18px] h-[18px]" />
+          Sair
+        </button>
       </div>
     </div>
   );

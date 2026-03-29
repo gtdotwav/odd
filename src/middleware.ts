@@ -12,14 +12,12 @@ const isProtectedRoute = createRouteMatcher([
   "/watchlist(.*)",
   "/config(.*)",
   "/notificacoes(.*)",
-  "/admin(.*)",
   "/api/orders(.*)",
   "/api/wallet(.*)",
   "/api/portfolio(.*)",
   "/api/watchlist(.*)",
   "/api/notifications(.*)",
   "/api/comments(.*)",
-  "/api/admin(.*)",
 ]);
 
 function defaultMiddleware(_req: NextRequest) {
