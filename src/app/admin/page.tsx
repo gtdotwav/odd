@@ -45,6 +45,11 @@ const quickActions = [
   { href: "/admin/usuarios?kyc_status=pending", icon: "shield", label: "Verificar KYC", description: "Usuarios aguardando verificacao" },
 ];
 
+interface SyncStatus {
+  loading: boolean;
+  result: { created: number; updated: number; errors: string[] } | null;
+}
+
 function activityIcon(type: string): string {
   switch (type) {
     case "market_created": return "bar-chart";
@@ -62,6 +67,7 @@ export default function AdminDashboard() {
   const [activity, setActivity] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sync, setSync] = useState<SyncStatus>({ loading: false, result: null });
 
   useEffect(() => {
     async function fetchData() {
@@ -79,6 +85,18 @@ export default function AdminDashboard() {
     }
     fetchData();
   }, []);
+
+  async function handleSync() {
+    setSync({ loading: true, result: null });
+    try {
+      const res = await fetch("/api/admin/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erro no sync");
+      setSync({ loading: false, result: data });
+    } catch (err) {
+      setSync({ loading: false, result: { created: 0, updated: 0, errors: [err instanceof Error ? err.message : "Erro"] } });
+    }
+  }
 
   const today = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -205,6 +223,48 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Polymarket Sync */}
+      <div className="mt-4 rounded-xl border border-border bg-surface p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-text">Sync Polymarket</h2>
+            <p className="text-xs text-text-secondary mt-0.5">Importar mercados populares da Polymarket (top 30 por volume 24h)</p>
+          </div>
+          <button
+            onClick={handleSync}
+            disabled={sync.loading}
+            className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {sync.loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Sincronizando...
+              </>
+            ) : (
+              <>
+                <Icon name="refresh" className="w-4 h-4" />
+                Sincronizar
+              </>
+            )}
+          </button>
+        </div>
+        {sync.result && (
+          <div className={`rounded-lg p-3 text-sm ${sync.result.errors.length > 0 ? 'bg-neutral-warn/10 border border-neutral-warn/20' : 'bg-up/10 border border-up/20'}`}>
+            <p className="font-medium">
+              {sync.result.created} criados, {sync.result.updated} atualizados
+              {sync.result.errors.length > 0 && `, ${sync.result.errors.length} erros`}
+            </p>
+            {sync.result.errors.length > 0 && (
+              <ul className="mt-1 text-xs text-text-secondary">
+                {sync.result.errors.slice(0, 3).map((e, i) => (
+                  <li key={i}>• {e}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

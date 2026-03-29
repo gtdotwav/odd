@@ -42,10 +42,13 @@ export interface Database {
           created_by: string | null;
           resolved_at: string | null;
           resolved_by: string | null;
+          polymarket_id: string | null;
+          polymarket_slug: string | null;
+          image_url: string | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["markets"]["Row"], "id" | "created_at" | "updated_at" | "volume" | "comment_count" | "variation_24h">;
+        Insert: Omit<Database["public"]["Tables"]["markets"]["Row"], "id" | "created_at" | "updated_at" | "volume" | "comment_count" | "variation_24h" | "polymarket_id" | "polymarket_slug" | "image_url" | "created_by" | "resolved_at" | "resolved_by"> & { polymarket_id?: string | null; polymarket_slug?: string | null; image_url?: string | null; created_by?: string | null; resolved_at?: string | null; resolved_by?: string | null };
         Update: Partial<Database["public"]["Tables"]["markets"]["Insert"]>;
         Relationships: [];
       };
