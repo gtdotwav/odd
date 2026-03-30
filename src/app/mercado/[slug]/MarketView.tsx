@@ -1,37 +1,96 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import Icon, { categoryIcons } from "@/components/Icon";
 import ProbChart from "@/components/ProbChart";
 import type { MarketDetail } from "@/types/market";
-import { formatVolume, formatVariation, formatRelativeTime } from "@/lib/utils";
+import { formatVolume, formatVariation, formatRelativeTime, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
 const MIN_AMOUNT = 1;
 const MAX_AMOUNT = 100000;
 
+interface TradeQuote {
+  shares: number;
+  cost: number;
+  fee: number;
+  avgPrice: number;
+  priceImpact: number;
+  newPriceYes: number;
+  newPriceNo: number;
+  currentPriceYes: number;
+  currentPriceNo: number;
+  error?: string;
+  message?: string;
+}
+
 function TradeTicket({ market }: { market: MarketDetail }) {
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quote, setQuote] = useState<TradeQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const { isSignedIn: clerkSignedIn } = useAuth();
   const isSignedIn = !!clerkSignedIn;
 
-  const price = side === "yes" ? market.priceYes : market.priceNo;
-  const numAmount = parseFloat(amount) || 0;
-  const qty = numAmount > 0 ? Math.floor(numAmount / price) : 0;
-  const payout = qty * 1;
-  const profit = payout - numAmount;
-  const profitPct = numAmount > 0 ? (profit / numAmount) * 100 : 0;
+  // Fetch wallet balance
+  const { data: walletData } = useQuery({
+    queryKey: ["wallet"],
+    queryFn: () => fetch("/api/wallet").then((r) => r.json()),
+    enabled: isSignedIn,
+    staleTime: 10 * 1000,
+  });
+  const balance = walletData?.balance ?? 0;
 
+  const numAmount = parseFloat(amount) || 0;
   const tooLow = numAmount > 0 && numAmount < MIN_AMOUNT;
   const tooHigh = numAmount > MAX_AMOUNT;
-  const validAmount = numAmount >= MIN_AMOUNT && numAmount <= MAX_AMOUNT;
-  const error = tooLow ? `Mínimo R$ ${MIN_AMOUNT}` : tooHigh ? `Máximo R$ ${MAX_AMOUNT.toLocaleString("pt-BR")}` : null;
+  const insufficientBalance = numAmount > 0 && numAmount > balance && isSignedIn;
+  const validAmount = numAmount >= MIN_AMOUNT && numAmount <= MAX_AMOUNT && !insufficientBalance;
+  const error = tooLow
+    ? `Mínimo R$ ${MIN_AMOUNT}`
+    : tooHigh
+    ? `Máximo R$ ${MAX_AMOUNT.toLocaleString("pt-BR")}`
+    : insufficientBalance
+    ? "Saldo insuficiente"
+    : null;
+
+  // Fetch quote when amount/side changes (debounced)
+  const fetchQuote = useCallback(async (s: string, a: number) => {
+    if (a < MIN_AMOUNT) { setQuote(null); return; }
+    setQuoteLoading(true);
+    try {
+      const res = await fetch(
+        `/api/markets/${market.slug}/trade?side=${s}&action=buy&amount=${a}`
+      );
+      const data = await res.json();
+      if (data.error) {
+        setQuote(null);
+      } else {
+        setQuote(data);
+      }
+    } catch {
+      setQuote(null);
+    } finally {
+      setQuoteLoading(false);
+    }
+  }, [market.slug]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (numAmount >= MIN_AMOUNT) {
+        fetchQuote(side, numAmount);
+      } else {
+        setQuote(null);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [side, numAmount, fetchQuote]);
 
   const handleBuy = async () => {
     if (!isSignedIn) {
@@ -42,23 +101,29 @@ function TradeTicket({ market }: { market: MarketDetail }) {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/orders", {
+      const res = await fetch(`/api/markets/${market.slug}/trade`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          market_id: market.id,
-          side,
-          type: "market",
-          price,
-          quantity: qty,
-        }),
+        body: JSON.stringify({ side, action: "buy", amount: numAmount }),
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.message || data.error || "Erro ao criar ordem");
+        const msg = data.message || data.error || "Erro ao executar trade";
+        if (data.error === "insufficient_balance") {
+          toast.error("Saldo insuficiente. Deposite para continuar.", {
+            action: { label: "Depositar", onClick: () => window.location.href = "/carteira" },
+          });
+        } else {
+          toast.error(msg);
+        }
       } else {
-        toast.success(`Ordem criada — ${qty} contratos ${side === "yes" ? "Sim" : "Não"}`);
+        toast.success(`Comprou ${data.shares?.toFixed(1) ?? ""} contratos ${side === "yes" ? "Sim" : "Não"}`);
         setAmount("");
+        setQuote(null);
+        // Refresh balance and portfolio
+        queryClient.invalidateQueries({ queryKey: ["wallet"] });
+        queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
       }
     } catch {
       toast.error("Erro de conexão");
@@ -67,9 +132,20 @@ function TradeTicket({ market }: { market: MarketDetail }) {
     }
   };
 
+  const payout = quote ? quote.shares : 0;
+  const profit = payout - numAmount;
+  const profitPct = numAmount > 0 ? (profit / numAmount) * 100 : 0;
+
   return (
     <div className="bg-surface rounded-lg border border-border p-4">
-      <h3 className="text-sm font-semibold mb-3">Negociar</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold">Negociar</h3>
+        {isSignedIn && (
+          <Link href="/carteira" className="text-[11px] text-text-tertiary hover:text-accent transition-colors font-mono">
+            Saldo: {formatCurrency(balance)}
+          </Link>
+        )}
+      </div>
 
       <div className="flex rounded-md border border-border overflow-hidden mb-4">
         <button
@@ -105,7 +181,14 @@ function TradeTicket({ market }: { market: MarketDetail }) {
           }`}
         />
       </div>
-      {error && <p className="text-[11px] text-down -mt-2 mb-3">{error}</p>}
+      {error && (
+        <p className="text-[11px] text-down -mt-2 mb-3">
+          {error}
+          {insufficientBalance && (
+            <Link href="/carteira" className="ml-1 text-accent hover:underline">Depositar →</Link>
+          )}
+        </p>
+      )}
 
       <div className="flex gap-2 mb-4">
         {["20", "50", "100", "200"].map((v) => (
@@ -120,50 +203,72 @@ function TradeTicket({ market }: { market: MarketDetail }) {
         ))}
       </div>
 
-      {amount && parseFloat(amount) > 0 && (
+      {numAmount >= MIN_AMOUNT && (
         <div className="space-y-2 mb-4 p-3 rounded-md bg-surface-raised text-xs">
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Preço</span>
-            <span className="font-mono text-text">R$ {price.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Quantidade</span>
-            <span className="font-mono text-text">{qty} contratos</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Retorno se {side === "yes" ? "Sim" : "Não"}</span>
-            <span className="font-mono text-up">R$ {payout.toFixed(2)} (+{profitPct.toFixed(1)}%)</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Risco máximo</span>
-            <span className="font-mono text-text">R$ {parseFloat(amount).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Taxa estimada</span>
-            <span className="font-mono text-text">R$ {(parseFloat(amount) * 0.02).toFixed(2)}</span>
-          </div>
+          {quoteLoading ? (
+            <div className="flex items-center justify-center py-2 text-text-tertiary">
+              <span className="animate-pulse">Calculando...</span>
+            </div>
+          ) : quote ? (
+            <>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Preço médio</span>
+                <span className="font-mono text-text">R$ {quote.avgPrice.toFixed(4)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Contratos</span>
+                <span className="font-mono text-text">{quote.shares.toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Retorno se {side === "yes" ? "Sim" : "Não"}</span>
+                <span className="font-mono text-up">R$ {payout.toFixed(2)} (+{profitPct.toFixed(1)}%)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Taxa ({((market.feeRate ?? 0.02) * 100).toFixed(0)}%)</span>
+                <span className="font-mono text-text">R$ {quote.fee.toFixed(2)}</span>
+              </div>
+              {quote.priceImpact > 0.01 && (
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Impacto no preço</span>
+                  <span className={`font-mono ${quote.priceImpact > 0.05 ? "text-neutral-warn" : "text-text-tertiary"}`}>
+                    {(quote.priceImpact * 100).toFixed(2)}%
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center justify-center py-2 text-text-tertiary text-xs">
+              Erro ao calcular cotação
+            </div>
+          )}
         </div>
       )}
 
-      <button
-        type="button"
-        disabled={!validAmount || isSubmitting}
-        onClick={handleBuy}
-        className="w-full py-2.5 rounded-md bg-highlight hover:bg-highlight-hover disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors"
-      >
-        {isSubmitting
-          ? "Processando..."
-          : !amount
-          ? "Insira um valor"
-          : !validAmount
-          ? "Valor inválido"
-          : `Comprar ${side === "yes" ? "Sim" : "Não"} · R$ ${numAmount.toFixed(2)}`}
-      </button>
-
-      <button type="button" className="flex items-center justify-center gap-1.5 w-full mt-2 py-2 text-xs text-text-tertiary hover:text-text-secondary transition-colors">
-        <Icon name="settings" className="w-3.5 h-3.5" />
-        Oferta com preço (ordem limite)
-      </button>
+      {!isSignedIn ? (
+        <Link
+          href="/auth/cadastro"
+          className="flex items-center justify-center w-full py-2.5 rounded-md bg-highlight hover:bg-highlight-hover text-white font-semibold text-sm transition-colors"
+        >
+          Criar conta para negociar
+        </Link>
+      ) : (
+        <button
+          type="button"
+          disabled={!validAmount || isSubmitting || quoteLoading}
+          onClick={handleBuy}
+          className="w-full py-2.5 rounded-md bg-highlight hover:bg-highlight-hover disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors"
+        >
+          {isSubmitting
+            ? "Processando..."
+            : !amount
+            ? "Insira um valor"
+            : insufficientBalance
+            ? "Saldo insuficiente"
+            : !validAmount
+            ? "Valor inválido"
+            : `Comprar ${side === "yes" ? "Sim" : "Não"} · R$ ${numAmount.toFixed(2)}`}
+        </button>
+      )}
     </div>
   );
 }

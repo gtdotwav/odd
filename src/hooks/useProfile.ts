@@ -23,7 +23,7 @@ export interface UserProfile {
   unread_notifications: number;
 }
 
-export function useProfile() {
+export function useProfile(options?: { enabled?: boolean }) {
   return useQuery<UserProfile | null>({
     queryKey: ["profile"],
     queryFn: async () => {
@@ -34,5 +34,6 @@ export function useProfile() {
     },
     staleTime: 60 * 1000,
     retry: false,
+    enabled: options?.enabled,
   });
 }

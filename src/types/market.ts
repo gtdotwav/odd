@@ -19,6 +19,7 @@ export interface Market {
   rules?: string;
   source?: string;
   featured?: boolean;
+  feeRate?: number;
   createdAt?: string;
 }
 

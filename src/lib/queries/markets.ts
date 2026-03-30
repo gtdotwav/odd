@@ -43,6 +43,7 @@ function mapRow(row: MarketWithJoins): Market {
     rules: row.rules || undefined,
     source: row.source || undefined,
     featured: row.featured || undefined,
+    feeRate: Number(row.fee_rate),
     createdAt: row.created_at,
   };
 
