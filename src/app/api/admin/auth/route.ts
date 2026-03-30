@@ -5,8 +5,18 @@ import {
   getAdminClerkId,
   COOKIE_NAME,
 } from "@/lib/admin-auth";
+import { checkRateLimit, rateLimits } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = checkRateLimit(ip, rateLimits.auth);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Muitas requisições. Tente novamente em breve." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfter / 1000)) } },
+    );
+  }
+
   try {
     const body = await req.json();
     const { email, password } = body;

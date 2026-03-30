@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
 const resolveMarketSchema = z.object({
-  resolution: z.enum(["yes", "no"]),
+  resolution: z.enum(["yes", "no", "void"]),
 });
 
 export async function POST(
@@ -28,7 +28,7 @@ export async function POST(
     }
 
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("admin_resolve_market", {
+    const { data, error } = await supabase.rpc("resolve_market_with_payout", {
       p_clerk_id: userId,
       p_market_id: marketId,
       p_resolution: parsed.data.resolution,
@@ -43,9 +43,17 @@ export async function POST(
 
     const result = data as Record<string, unknown>;
     if (result.error) {
+      const statusMap: Record<string, number> = {
+        forbidden: 403,
+        not_found: 404,
+        already_resolved: 409,
+        invalid_status: 400,
+        invalid_resolution: 400,
+      };
+      const status = statusMap[result.error as string] ?? 400;
       return NextResponse.json(
-        { error: result.error, ...result },
-        { status: 400 },
+        { error: result.error, message: result.message },
+        { status },
       );
     }
 

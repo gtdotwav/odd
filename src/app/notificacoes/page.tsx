@@ -1,14 +1,14 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useAuth } from "@clerk/nextjs";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Sidebar from "@/components/Sidebar";
 import EmptyState from "@/components/EmptyState";
 import Icon from "@/components/Icon";
+import { Skeleton } from "@/components/Skeleton";
 import { formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
-
-export const metadata: Metadata = {
-  title: "Notificacoes",
-  description: "Suas notificacoes na Odd — ordens, resolucoes, alertas e mais.",
-};
 
 interface Notification {
   id: string;
@@ -20,6 +20,19 @@ interface Notification {
   createdAt: string;
 }
 
+interface NotificationsResponse {
+  notifications: Array<{
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    data?: { href?: string } | null;
+    read: boolean;
+    created_at: string;
+  }>;
+  unread_count: number;
+}
+
 const typeConfig: Record<string, { icon: string; iconClass: string; bgClass: string }> = {
   trade_filled: { icon: "zap", iconClass: "text-accent", bgClass: "bg-accent/10" },
   market_resolved: { icon: "check", iconClass: "text-up", bgClass: "bg-up/10" },
@@ -29,61 +42,17 @@ const typeConfig: Record<string, { icon: string; iconClass: string; bgClass: str
   payout: { icon: "gift", iconClass: "text-up", bgClass: "bg-up/10" },
 };
 
-const mockNotifications: Notification[] = [
-  {
-    id: "n1",
-    type: "trade_filled",
-    title: "Ordem executada",
-    body: "Sua ordem de compra de 50x Sim no mercado 'Selic sobe em maio?' foi executada a R$ 0,78.",
-    href: "/mercado/selic-sobe-maio-2026",
-    read: false,
-    createdAt: "2026-03-29T10:30:00Z",
-  },
-  {
-    id: "n2",
-    type: "market_resolved",
-    title: "Mercado resolvido",
-    body: "O mercado 'Lula veta marco temporal?' foi resolvido como Sim. Voce ganhou R$ 85,00.",
-    href: "/mercado/lula-veta-marco-temporal",
-    read: false,
-    createdAt: "2026-03-28T18:00:00Z",
-  },
-  {
-    id: "n3",
-    type: "price_alert",
-    title: "Alerta de preco",
-    body: "Bitcoin 100k em junho? atingiu 62% (seu alerta: 60%).",
-    href: "/mercado/bitcoin-100k-junho",
-    read: false,
-    createdAt: "2026-03-28T14:15:00Z",
-  },
-  {
-    id: "n4",
-    type: "new_follower",
-    title: "Novo seguidor",
-    body: "@carla_invest comecou a seguir voce.",
-    href: "/u/carla_invest",
-    read: true,
-    createdAt: "2026-03-27T11:00:00Z",
-  },
-  {
-    id: "n5",
-    type: "comment_reply",
-    title: "Resposta ao comentario",
-    body: "@trader_rj respondeu: 'Concordo, o cenario macro aponta para alta'.",
-    href: "/mercado/selic-sobe-maio-2026",
-    read: true,
-    createdAt: "2026-03-27T09:30:00Z",
-  },
-  {
-    id: "n6",
-    type: "payout",
-    title: "Pagamento recebido",
-    body: "Voce recebeu R$ 85,00 pela resolucao do mercado 'Lula veta marco temporal?'.",
-    read: true,
-    createdAt: "2026-03-26T08:00:00Z",
-  },
-];
+function mapNotification(raw: NotificationsResponse["notifications"][number]): Notification {
+  return {
+    id: raw.id,
+    type: raw.type as Notification["type"],
+    title: raw.title,
+    body: raw.body,
+    href: raw.data?.href ?? undefined,
+    read: raw.read,
+    createdAt: raw.created_at,
+  };
+}
 
 function NotificationItem({ notification }: { notification: Notification }) {
   const config = typeConfig[notification.type] ?? typeConfig.trade_filled;
@@ -117,10 +86,83 @@ function NotificationItem({ notification }: { notification: Notification }) {
   return <div className={className}>{content}</div>;
 }
 
-export default async function NotificacoesPage() {
-  // TODO: fetch from /api/notifications
-  const notifications = mockNotifications;
-  const unreadCount = notifications.filter((n) => !n.read).length;
+function NotificationsSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-start gap-3 p-4 rounded-lg border border-border bg-surface">
+          <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+          <div className="flex-1">
+            <Skeleton className="h-4 w-32 mb-2" />
+            <Skeleton className="h-3 w-full mb-1" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function NotificacoesPage() {
+  const queryClient = useQueryClient();
+
+  let isSignedIn = false;
+  try {
+    const authState = useAuth();
+    isSignedIn = !!authState.isSignedIn;
+  } catch {
+    // Clerk not configured
+  }
+
+  const { data, isLoading } = useQuery<NotificationsResponse>({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications");
+      if (!res.ok) throw new Error("Erro ao carregar notificações");
+      return res.json();
+    },
+    enabled: isSignedIn,
+    staleTime: 30 * 1000,
+  });
+
+  const markAllRead = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error("Erro ao marcar como lidas");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success("Todas as notificações marcadas como lidas");
+    },
+    onError: () => {
+      toast.error("Erro ao marcar notificações como lidas");
+    },
+  });
+
+  const notifications = (data?.notifications ?? []).map(mapNotification);
+  const unreadCount = data?.unread_count ?? 0;
+
+  if (!isSignedIn) {
+    return (
+      <div className="flex max-w-[1440px] mx-auto">
+        <Sidebar />
+        <main className="flex-1 min-w-0 px-4 md:px-6 py-5">
+          <h1 className="text-xl font-bold text-text mb-6">Notificacoes</h1>
+          <EmptyState
+            icon="bell"
+            title="Faça login"
+            description="Entre na sua conta para ver suas notificações."
+          />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex max-w-[1440px] mx-auto">
@@ -138,14 +180,18 @@ export default async function NotificacoesPage() {
           {unreadCount > 0 && (
             <button
               type="button"
-              className="text-sm text-accent hover:underline font-medium"
+              disabled={markAllRead.isPending}
+              onClick={() => markAllRead.mutate()}
+              className="text-sm text-accent hover:underline font-medium disabled:opacity-50"
             >
-              Marcar todas como lidas
+              {markAllRead.isPending ? "Marcando..." : "Marcar todas como lidas"}
             </button>
           )}
         </div>
 
-        {notifications.length === 0 ? (
+        {isLoading ? (
+          <NotificationsSkeleton />
+        ) : notifications.length === 0 ? (
           <EmptyState
             icon="bell"
             title="Nenhuma notificacao"

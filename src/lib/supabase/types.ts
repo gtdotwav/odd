@@ -42,14 +42,19 @@ export interface Database {
           created_by: string | null;
           resolved_at: string | null;
           resolved_by: string | null;
+          pool_yes: number;
+          pool_no: number;
+          pool_k: number;
+          total_liquidity: number;
+          fee_rate: number;
           polymarket_id: string | null;
           polymarket_slug: string | null;
           image_url: string | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["markets"]["Row"], "id" | "created_at" | "updated_at" | "volume" | "comment_count" | "variation_24h" | "polymarket_id" | "polymarket_slug" | "image_url" | "created_by" | "resolved_at" | "resolved_by"> & { polymarket_id?: string | null; polymarket_slug?: string | null; image_url?: string | null; created_by?: string | null; resolved_at?: string | null; resolved_by?: string | null };
-        Update: Partial<Database["public"]["Tables"]["markets"]["Insert"]>;
+        Insert: Omit<Database["public"]["Tables"]["markets"]["Row"], "id" | "created_at" | "updated_at" | "volume" | "comment_count" | "variation_24h" | "pool_yes" | "pool_no" | "pool_k" | "total_liquidity" | "fee_rate" | "polymarket_id" | "polymarket_slug" | "image_url" | "created_by" | "resolved_at" | "resolved_by"> & { pool_yes?: number; pool_no?: number; pool_k?: number; total_liquidity?: number; fee_rate?: number; polymarket_id?: string | null; polymarket_slug?: string | null; image_url?: string | null; created_by?: string | null; resolved_at?: string | null; resolved_by?: string | null };
+        Update: Partial<Database["public"]["Tables"]["markets"]["Insert"]> & { variation_24h?: number; volume?: number; comment_count?: number };
         Relationships: [];
       };
       outcomes: {
@@ -93,10 +98,12 @@ export interface Database {
           side: "yes" | "no";
           quantity: number;
           avg_price: number;
+          payout_amount: number;
+          claimed_at: string | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["positions"]["Row"], "id" | "created_at" | "updated_at">;
+        Insert: Omit<Database["public"]["Tables"]["positions"]["Row"], "id" | "created_at" | "updated_at" | "payout_amount" | "claimed_at"> & { payout_amount?: number; claimed_at?: string | null };
         Update: Partial<Database["public"]["Tables"]["positions"]["Insert"]>;
         Relationships: [];
       };
@@ -273,6 +280,9 @@ export interface Database {
       admin_create_market: { Args: { p_clerk_id: string; p_title: string; p_slug: string; p_category: string; p_type?: string; p_resolution_date?: string | null; p_subtitle?: string | null; p_context?: string | null; p_rules?: string | null; p_source?: string | null; p_status?: string; p_featured?: boolean }; Returns: Json };
       admin_update_market: { Args: { p_clerk_id: string; p_market_id: string; p_title?: string | null; p_subtitle?: string | null; p_category?: string | null; p_status?: string | null; p_resolution_date?: string | null; p_context?: string | null; p_rules?: string | null; p_source?: string | null; p_featured?: boolean | null }; Returns: Json };
       admin_resolve_market: { Args: { p_clerk_id: string; p_market_id: string; p_resolution: string }; Returns: Json };
+      resolve_market_with_payout: { Args: { p_clerk_id: string; p_market_id: string; p_resolution: string }; Returns: Json };
+      claim_payout: { Args: { p_clerk_id: string; p_market_id: string }; Returns: Json };
+      execute_trade: { Args: { p_clerk_id: string; p_market_id: string; p_side: string; p_action: string; p_amount: number; p_expected_shares: number; p_expected_payout: number; p_fee: number; p_new_pool_yes: number; p_new_pool_no: number }; Returns: Json };
       admin_list_orders: { Args: { p_clerk_id: string; p_status?: string | null; p_market_id?: string | null; p_side?: string | null; p_limit?: number; p_offset?: number }; Returns: Json };
       admin_list_transactions: { Args: { p_clerk_id: string; p_type?: string | null; p_status?: string | null; p_limit?: number; p_offset?: number }; Returns: Json };
       admin_list_comments: { Args: { p_clerk_id: string; p_market_id?: string | null; p_search?: string | null; p_limit?: number; p_offset?: number }; Returns: Json };

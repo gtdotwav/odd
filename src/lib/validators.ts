@@ -33,8 +33,15 @@ export const withdrawSchema = z.object({
   pix_key: z.string().min(1),
 });
 
+export const tradeSchema = z.object({
+  side: z.enum(["yes", "no"]),
+  action: z.enum(["buy", "sell"]),
+  amount: z.number().positive().max(1_000_000),
+});
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type MarketQueryInput = z.infer<typeof marketQuerySchema>;
 export type DepositInput = z.infer<typeof depositSchema>;
 export type WithdrawInput = z.infer<typeof withdrawSchema>;
+export type TradeInput = z.infer<typeof tradeSchema>;

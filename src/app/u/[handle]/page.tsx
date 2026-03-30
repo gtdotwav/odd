@@ -1,23 +1,10 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import Sidebar from "@/components/Sidebar";
-import Icon from "@/components/Icon";
 import { formatCurrency, formatVolume, formatDate } from "@/lib/utils";
 import Link from "next/link";
-
-interface UserProfile {
-  handle: string;
-  displayName: string;
-  avatarInitial: string;
-  bio: string;
-  memberSince: string;
-  trades: number;
-  volume: number;
-  pnl: number;
-  winRate: number;
-  followers: number;
-  following: number;
-  positions: PublicPosition[];
-}
+import FollowButton from "./FollowButton";
 
 interface PublicPosition {
   id: string;
@@ -28,47 +15,26 @@ interface PublicPosition {
   currentPrice: number;
 }
 
-// Mock data — will be replaced by API call
-function getMockUser(handle: string): UserProfile {
-  return {
-    handle,
-    displayName: handle.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    avatarInitial: handle.charAt(0).toUpperCase(),
-    bio: "Trader ativo na Odd. Foco em macroeconomia e politica brasileira.",
-    memberSince: "2026-01-15",
-    trades: 234,
-    volume: 567000,
-    pnl: 4520,
-    winRate: 0.62,
-    followers: 128,
-    following: 45,
-    positions: [
-      {
-        id: "p1",
-        marketSlug: "selic-sobe-maio-2026",
-        marketTitle: "Selic sobe na reuniao do Copom em maio?",
-        side: "yes",
-        quantity: 50,
-        currentPrice: 0.78,
-      },
-      {
-        id: "p2",
-        marketSlug: "bitcoin-100k-junho",
-        marketTitle: "Bitcoin ultrapassa US$ 100k em junho?",
-        side: "no",
-        quantity: 30,
-        currentPrice: 0.38,
-      },
-      {
-        id: "p3",
-        marketSlug: "brasil-copa-2026",
-        marketTitle: "Brasil ganha a Copa do Mundo 2026?",
-        side: "yes",
-        quantity: 100,
-        currentPrice: 0.19,
-      },
-    ],
-  };
+interface PublicProfile {
+  handle: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  created_at: string;
+  total_trades: number;
+  total_volume: number;
+  total_pnl: number;
+  win_rate: number;
+  followers: number;
+  following: number;
+  positions: Array<{
+    id: string;
+    market_slug: string;
+    market_title: string;
+    side: "yes" | "no";
+    quantity: number;
+    current_price: number;
+  }>;
 }
 
 export async function generateMetadata({
@@ -77,13 +43,24 @@ export async function generateMetadata({
   params: Promise<{ handle: string }>;
 }): Promise<Metadata> {
   const { handle } = await params;
-  const user = getMockUser(handle);
+
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("get_public_profile", {
+    p_handle: handle,
+  });
+
+  const profile = data as unknown as PublicProfile | null;
+
+  if (!profile) {
+    return { title: "Usuário não encontrado" };
+  }
+
   return {
-    title: `${user.displayName} (@${user.handle})`,
-    description: `Perfil de ${user.displayName} na Odd. ${user.trades} trades, ${formatVolume(user.volume)} em volume.`,
+    title: `${profile.display_name} (@${profile.handle})`,
+    description: `Perfil de ${profile.display_name} na Odd. ${profile.total_trades} trades, ${formatVolume(profile.total_volume)} em volume.`,
     openGraph: {
-      title: `${user.displayName} (@${user.handle}) | Odd`,
-      description: user.bio,
+      title: `${profile.display_name} (@${profile.handle}) | Odd`,
+      description: profile.bio || `Perfil de ${profile.display_name} na Odd.`,
     },
   };
 }
@@ -94,8 +71,33 @@ export default async function UserProfilePage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
-  // TODO: fetch from /api/users/{handle}
-  const user = getMockUser(handle);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_public_profile", {
+    p_handle: handle,
+  });
+
+  if (error || !data) {
+    notFound();
+  }
+
+  const user = data as unknown as PublicProfile;
+
+  const avatarInitial = user.display_name?.charAt(0)?.toUpperCase() || user.handle.charAt(0).toUpperCase();
+  const trades = user.total_trades ?? 0;
+  const volume = user.total_volume ?? 0;
+  const pnl = user.total_pnl ?? 0;
+  const winRate = user.win_rate ?? 0;
+  const followers = user.followers ?? 0;
+  const following = user.following ?? 0;
+  const positions: PublicPosition[] = (user.positions ?? []).map((p) => ({
+    id: p.id,
+    marketSlug: p.market_slug,
+    marketTitle: p.market_title,
+    side: p.side,
+    quantity: p.quantity,
+    currentPrice: p.current_price,
+  }));
 
   return (
     <div className="flex max-w-[1440px] mx-auto">
@@ -104,47 +106,44 @@ export default async function UserProfilePage({
         {/* Profile header */}
         <div className="flex flex-col sm:flex-row sm:items-start gap-5 mb-8">
           <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center text-3xl font-bold text-accent shrink-0">
-            {user.avatarInitial}
+            {avatarInitial}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-text">{user.displayName}</h1>
+            <h1 className="text-xl font-bold text-text">{user.display_name}</h1>
             <p className="text-sm text-text-tertiary mb-2">@{user.handle}</p>
-            <p className="text-sm text-text-secondary mb-3 max-w-lg">{user.bio}</p>
+            {user.bio && (
+              <p className="text-sm text-text-secondary mb-3 max-w-lg">{user.bio}</p>
+            )}
             <div className="flex items-center gap-4 text-xs text-text-tertiary">
-              <span>Membro desde {formatDate(user.memberSince)}</span>
+              <span>Membro desde {formatDate(user.created_at)}</span>
               <span className="text-border">|</span>
-              <span><strong className="text-text font-medium">{user.followers}</strong> seguidores</span>
+              <span><strong className="text-text font-medium">{followers}</strong> seguidores</span>
               <span className="text-border">|</span>
-              <span><strong className="text-text font-medium">{user.following}</strong> seguindo</span>
+              <span><strong className="text-text font-medium">{following}</strong> seguindo</span>
             </div>
           </div>
-          <button
-            type="button"
-            className="px-5 py-2 rounded-lg border border-border text-sm font-medium text-text-secondary hover:text-text hover:border-border-strong transition-colors shrink-0"
-          >
-            Seguir
-          </button>
+          <FollowButton handle={user.handle} />
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           <div className="p-4 rounded-lg border border-border bg-surface">
             <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Trades</p>
-            <p className="text-lg font-mono font-bold text-text">{user.trades}</p>
+            <p className="text-lg font-mono font-bold text-text">{trades}</p>
           </div>
           <div className="p-4 rounded-lg border border-border bg-surface">
             <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Volume</p>
-            <p className="text-lg font-mono font-bold text-text">{formatVolume(user.volume)}</p>
+            <p className="text-lg font-mono font-bold text-text">{formatVolume(volume)}</p>
           </div>
           <div className="p-4 rounded-lg border border-border bg-surface">
             <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">PnL</p>
-            <p className={`text-lg font-mono font-bold ${user.pnl >= 0 ? "text-up" : "text-down"}`}>
-              {user.pnl >= 0 ? "+" : ""}{formatCurrency(user.pnl)}
+            <p className={`text-lg font-mono font-bold ${pnl >= 0 ? "text-up" : "text-down"}`}>
+              {pnl >= 0 ? "+" : ""}{formatCurrency(pnl)}
             </p>
           </div>
           <div className="p-4 rounded-lg border border-border bg-surface">
             <p className="text-[10px] uppercase tracking-wider text-text-tertiary mb-1">Win rate</p>
-            <p className="text-lg font-mono font-bold text-text">{(user.winRate * 100).toFixed(0)}%</p>
+            <p className="text-lg font-mono font-bold text-text">{(winRate * 100).toFixed(0)}%</p>
           </div>
         </div>
 
@@ -153,11 +152,11 @@ export default async function UserProfilePage({
           <h2 className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-3">
             Posicoes publicas
           </h2>
-          {user.positions.length === 0 ? (
+          {positions.length === 0 ? (
             <p className="text-sm text-text-tertiary py-4">Nenhuma posicao publica.</p>
           ) : (
             <div className="space-y-2">
-              {user.positions.map((pos) => (
+              {positions.map((pos) => (
                 <Link
                   key={pos.id}
                   href={`/mercado/${pos.marketSlug}`}

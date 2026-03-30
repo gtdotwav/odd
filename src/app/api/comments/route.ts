@@ -2,8 +2,18 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { createCommentSchema } from "@/lib/validators";
+import { checkRateLimit, rateLimits } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = checkRateLimit(ip, rateLimits.comment);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Muitas requisições. Tente novamente em breve." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfter / 1000)) } },
+    );
+  }
+
   let userId: string | null = null;
   try {
     const session = await auth();
