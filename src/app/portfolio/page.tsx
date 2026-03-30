@@ -8,6 +8,7 @@ import Icon from "@/components/Icon";
 import { Skeleton } from "@/components/Skeleton";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
+import OnboardingBanner from "@/components/OnboardingBanner";
 
 interface Position {
   market_id: string;
@@ -166,6 +167,7 @@ export default function PortfolioPage() {
     <div className="flex max-w-[1440px] mx-auto">
       <Sidebar />
       <main className="flex-1 min-w-0 px-4 md:px-6 py-5">
+        <OnboardingBanner />
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-text">Portfolio</h1>
           <Link href="/carteira" className="text-sm text-accent hover:underline font-medium">

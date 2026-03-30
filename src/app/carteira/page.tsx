@@ -9,6 +9,8 @@ import EmptyState from "@/components/EmptyState";
 import Icon from "@/components/Icon";
 import { Skeleton } from "@/components/Skeleton";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
+import { useProfile } from "@/hooks/useProfile";
+import OnboardingBanner from "@/components/OnboardingBanner";
 
 interface Transaction {
   id: string;
@@ -146,9 +148,9 @@ function DepositModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   );
 }
 
-function WithdrawModal({ onClose, onSuccess, balance }: { onClose: () => void; onSuccess: () => void; balance: number }) {
+function WithdrawModal({ onClose, onSuccess, balance, savedPixKey, savedPixKeyType }: { onClose: () => void; onSuccess: () => void; balance: number; savedPixKey?: string | null; savedPixKeyType?: string | null }) {
   const [amount, setAmount] = useState("");
-  const [pixKey, setPixKey] = useState("");
+  const [pixKey, setPixKey] = useState(savedPixKey || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const numAmount = parseFloat(amount) || 0;
 
@@ -203,6 +205,12 @@ function WithdrawModal({ onClose, onSuccess, balance }: { onClose: () => void; o
         </div>
 
         <label className="block text-xs text-text-secondary mb-1.5">Chave Pix</label>
+        {savedPixKey && (
+          <p className="text-[11px] text-up mb-1.5 flex items-center gap-1">
+            <Icon name="check-circle" className="w-3 h-3" />
+            Usando chave {savedPixKeyType?.toUpperCase()} cadastrada
+          </p>
+        )}
         <input
           type="text"
           value={pixKey}
@@ -232,6 +240,7 @@ export default function CarteiraPage() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { data: profile } = useProfile();
 
   let isSignedIn = false;
   try {
@@ -278,6 +287,7 @@ export default function CarteiraPage() {
     <div className="flex max-w-[1440px] mx-auto">
       <Sidebar />
       <main className="flex-1 min-w-0 px-4 md:px-6 py-5">
+        <OnboardingBanner />
         <h1 className="text-xl font-bold text-text mb-6">Carteira</h1>
 
         {/* Balance card */}
@@ -350,7 +360,7 @@ export default function CarteiraPage() {
       </main>
 
       {depositOpen && <DepositModal onClose={() => setDepositOpen(false)} onSuccess={refresh} />}
-      {withdrawOpen && <WithdrawModal onClose={() => setWithdrawOpen(false)} onSuccess={refresh} balance={balance} />}
+      {withdrawOpen && <WithdrawModal onClose={() => setWithdrawOpen(false)} onSuccess={refresh} balance={balance} savedPixKey={profile?.pix_key} savedPixKeyType={profile?.pix_key_type} />}
     </div>
   );
 }
