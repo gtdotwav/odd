@@ -32,8 +32,8 @@ const sections: { title: string; items: SidebarItem[] }[] = [
       { href: "/explorar?cat=mundo", label: "Mundo", icon: "globe" },
       { href: "/explorar?cat=tech", label: "Tech / IA", icon: "cpu" },
       { href: "/explorar?cat=clima", label: "Clima", icon: "cloud" },
-      { href: "/explorar?cat=ciencia", label: "Ciencia", icon: "beaker" },
-      { href: "/explorar?cat=saude", label: "Saude", icon: "heart" },
+      { href: "/explorar?cat=ciencia", label: "Ciência", icon: "beaker" },
+      { href: "/explorar?cat=saude", label: "Saúde", icon: "heart" },
       { href: "/explorar?cat=entretenimento", label: "Entretenimento", icon: "tv" },
     ],
   },
@@ -50,12 +50,6 @@ const sections: { title: string; items: SidebarItem[] }[] = [
     items: [
       { href: "/rankings", label: "Rankings", icon: "trophy" },
       { href: "/confianca", label: "Confiança", icon: "shield" },
-    ],
-  },
-  {
-    title: "Admin",
-    items: [
-      { href: "/admin", label: "Painel Admin", icon: "lock" },
     ],
   },
 ];

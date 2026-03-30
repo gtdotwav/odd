@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import Icon from "@/components/Icon";
+import { useTheme } from "@/hooks/useTheme";
 import { useProfile } from "@/hooks/useProfile";
 import { useKyc, type KycDocument } from "@/hooks/useKyc";
 import { useQueryClient } from "@tanstack/react-query";
@@ -244,6 +245,7 @@ export default function ConfigPage() {
   const { data: profile, isLoading } = useProfile();
   const { data: kyc, refetch: refetchKyc } = useKyc();
   const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
 
   // Profile fields
   const [displayName, setDisplayName] = useState("");
@@ -595,24 +597,33 @@ export default function ConfigPage() {
           </div>
         </section>
 
-        {/* ── Aparencia ──────────────────────────────── */}
+        {/* ── Aparência ──────────────────────────────── */}
         <section className="mb-8">
           <h2 className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-4">
-            Aparencia
+            Aparência
           </h2>
           <div className="p-5 rounded-lg border border-border bg-surface">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-accent bg-accent/5">
-                <div className="w-5 h-5 rounded-full bg-white border border-border" />
+              <button
+                type="button"
+                onClick={() => setTheme("light")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-colors ${
+                  theme === "light" ? "border-accent bg-accent/5" : "border-border hover:border-border-strong"
+                }`}
+              >
+                <Icon name="sun" className="w-4 h-4" />
                 <span className="text-sm font-medium text-text">Claro</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border opacity-50 cursor-not-allowed">
-                <div className="w-5 h-5 rounded-full bg-gray-800 border border-gray-600" />
-                <span className="text-sm font-medium text-text-tertiary">Escuro</span>
-                <span className="text-[9px] uppercase tracking-wider font-semibold text-text-tertiary bg-surface-raised px-1.5 py-0.5 rounded">
-                  Em breve
-                </span>
-              </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("dark")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-colors ${
+                  theme === "dark" ? "border-accent bg-accent/5" : "border-border hover:border-border-strong"
+                }`}
+              >
+                <Icon name="moon" className="w-4 h-4" />
+                <span className="text-sm font-medium text-text">Escuro</span>
+              </button>
             </div>
           </div>
         </section>

@@ -48,6 +48,8 @@ const paths: Record<string, string> = {
   beaker: "M9 3h6M10 3v4.5L6 20h12l-4-12.5V3",
   heart: "M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z",
   tv: "M2 7a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7zM8 21h8M12 17v4",
+  sun: "M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41M12 8a4 4 0 100 8 4 4 0 000-8z",
+  moon: "M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z",
 };
 
 export default function Icon({ name, className = "w-4 h-4" }: { name: string; className?: string }) {

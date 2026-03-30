@@ -259,8 +259,8 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
       >
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2178B5" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#2178B5" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
           </linearGradient>
           <clipPath id="plotClip">
             <rect x={PADDING.left} y={PADDING.top} width={plotW} height={plotH} />
@@ -314,7 +314,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
         <path
           d={smoothPath}
           fill="none"
-          stroke="#2178B5"
+          stroke="var(--color-accent)"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -323,7 +323,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
 
         {/* High marker */}
         <g>
-          <circle cx={toX(highIdx)} cy={toY(values[highIdx])} r="3" fill="#2178B5" opacity="0.6" />
+          <circle cx={toX(highIdx)} cy={toY(values[highIdx])} r="3" fill="var(--color-accent)" opacity="0.6" />
           <text
             x={toX(highIdx)}
             y={toY(values[highIdx]) - 8}
@@ -339,7 +339,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
 
         {/* Low marker */}
         <g>
-          <circle cx={toX(lowIdx)} cy={toY(values[lowIdx])} r="3" fill="#DC2626" opacity="0.6" />
+          <circle cx={toX(lowIdx)} cy={toY(values[lowIdx])} r="3" fill="var(--color-down)" opacity="0.6" />
           <text
             x={toX(lowIdx)}
             y={toY(values[lowIdx]) + 15}
@@ -379,9 +379,9 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
               strokeDasharray="3 3"
             />
             {/* Dot */}
-            <circle cx={hoverX} cy={hoverY} r="5" fill="#2178B5" opacity="0.2" />
-            <circle cx={hoverX} cy={hoverY} r="3" fill="#2178B5" />
-            <circle cx={hoverX} cy={hoverY} r="1.5" fill="white" />
+            <circle cx={hoverX} cy={hoverY} r="5" fill="var(--color-accent)" opacity="0.2" />
+            <circle cx={hoverX} cy={hoverY} r="3" fill="var(--color-accent)" />
+            <circle cx={hoverX} cy={hoverY} r="1.5" fill="var(--color-surface)" />
 
             {/* Value label on Y axis */}
             <rect
@@ -390,7 +390,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
               width={PADDING.left - 4}
               height={18}
               rx="3"
-              fill="#2178B5"
+              fill="var(--color-accent)"
             />
             <text
               x={(PADDING.left - 4) / 2}
@@ -411,7 +411,7 @@ export default function ProbChart({ currentPrice, priceHistory }: { currentPrice
               width={60}
               height={18}
               rx="3"
-              fill="#2178B5"
+              fill="var(--color-accent)"
             />
             <text
               x={Math.max(PADDING.left + 30, Math.min(hoverX, PADDING.left + plotW - 30))}

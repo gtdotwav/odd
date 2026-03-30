@@ -1,17 +1,42 @@
 @import "tailwindcss";
 
+/* ── Light / Dark surface tokens ─────────────────── */
+:root {
+  color-scheme: light;
+  --ink: #F7F8FA;
+  --surface: #FFFFFF;
+  --surface-raised: #F0F2F5;
+  --border: #E5E7EB;
+  --border-strong: #D1D5DB;
+  --text: #111827;
+  --text-secondary: #4B5563;
+  --text-tertiary: #6B7280;
+}
+
+html.dark {
+  color-scheme: dark;
+  --ink: #0F1117;
+  --surface: #1A1D23;
+  --surface-raised: #22262E;
+  --border: #2D3340;
+  --border-strong: #3D4455;
+  --text: #F1F3F7;
+  --text-secondary: #9AA3B0;
+  --text-tertiary: #6B7280;
+}
+
 @theme {
-  /* Base — Light theme */
-  --color-ink: #F7F8FA;
-  --color-surface: #FFFFFF;
-  --color-surface-raised: #F0F2F5;
-  --color-border: #E5E7EB;
-  --color-border-strong: #D1D5DB;
+  /* Surface — delegated to :root / .dark */
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
 
   /* Text */
-  --color-text: #111827;
-  --color-text-secondary: #4B5563;
-  --color-text-tertiary: #6B7280;
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
 
   /* Brand — Azul (WCAG AA ≥ 4.5:1 on white) */
   --color-accent: #2178B5;
@@ -32,10 +57,6 @@
   /* Type — next/font CSS variables set in layout.tsx */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
-}
-
-html {
-  color-scheme: light;
 }
 
 body {

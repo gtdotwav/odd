@@ -6,6 +6,7 @@ import Icon from "./Icon";
 import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
+import { useTheme } from "@/hooks/useTheme";
 
 const mobileCategories = [
   { href: "/explorar?cat=futebol", label: "Futebol", icon: "football" },
@@ -32,6 +33,7 @@ export default function Navbar() {
   const clerk = useClerk();
   const isSignedIn = !!clerkSignedIn;
   const signOut = () => clerk.signOut();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -86,8 +88,18 @@ export default function Navbar() {
         {/* Right */}
         <div className="flex items-center gap-2 ml-auto">
           {/* Mobile search */}
-          <button type="button" aria-label="Buscar" className="md:hidden p-2 text-text-secondary hover:text-text">
+          <button type="button" aria-label="Buscar" className="md:hidden p-2 text-text-secondary hover:text-text" onClick={() => window.dispatchEvent(new CustomEvent("open-search"))}>
             <Icon name="search" className="w-5 h-5" />
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
+            className="p-2 rounded-md text-text-secondary hover:text-text hover:bg-surface-raised transition-colors"
+          >
+            <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
           </button>
 
           {isSignedIn && user ? (
@@ -144,7 +156,7 @@ export default function Navbar() {
                       onClick={() => { setDropdownOpen(false); signOut?.(); }}
                       className="flex items-center gap-2.5 px-3 py-2 text-sm text-down hover:bg-surface-raised transition-colors w-full text-left"
                     >
-                      <Icon name="share" className="w-4 h-4 opacity-60" />
+                      <Icon name="log-out" className="w-4 h-4 opacity-60" />
                       Sair
                     </button>
                   </div>
@@ -153,10 +165,9 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button type="button" aria-label="Notificações" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
+              <Link href="/auth/login" aria-label="Notificações" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono text-text-secondary hover:text-text rounded-md hover:bg-surface-raised transition-colors">
                 <Icon name="bell" className="w-4 h-4" />
-                <span className="w-4 h-4 rounded-full bg-highlight text-[10px] text-white flex items-center justify-center font-sans">3</span>
-              </button>
+              </Link>
               <Link
                 href="/auth/login"
                 className="hidden md:block text-sm font-medium text-text-secondary hover:text-text transition-colors"
