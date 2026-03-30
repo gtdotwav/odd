@@ -2,6 +2,58 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ handle: string }> },
+) {
+  let userId: string | null = null;
+  try {
+    const session = await auth();
+    userId = session.userId;
+  } catch {
+    // Clerk not configured
+  }
+  if (!userId) {
+    return NextResponse.json({ following: false });
+  }
+
+  try {
+    const { handle } = await params;
+    const supabase = await createClient();
+
+    const { data: myProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (!myProfile) {
+      return NextResponse.json({ following: false });
+    }
+
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("handle", handle)
+      .single();
+
+    if (!targetProfile) {
+      return NextResponse.json({ following: false });
+    }
+
+    const { data: existing } = await supabase
+      .from("follows")
+      .select("follower_id")
+      .eq("follower_id", myProfile.id)
+      .eq("following_id", targetProfile.id)
+      .maybeSingle();
+
+    return NextResponse.json({ following: !!existing });
+  } catch {
+    return NextResponse.json({ following: false });
+  }
+}
+
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ handle: string }> },

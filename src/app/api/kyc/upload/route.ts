@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 const VALID_DOC_TYPES = ["id_front", "proof_address"];
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = checkRateLimit(ip, { interval: 60_000, limit: 5 });
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Muitas tentativas. Aguarde 1 minuto." },
+      { status: 429 },
+    );
+  }
+
   let userId: string | null = null;
   try {
     const session = await auth();

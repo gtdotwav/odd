@@ -1,15 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 
-export default function FollowButton({ handle }: { handle: string }) {
-  const [isFollowing, setIsFollowing] = useState(false);
+export default function FollowButton({ handle, initialFollowing }: { handle: string; initialFollowing?: boolean }) {
+  const [isFollowing, setIsFollowing] = useState(initialFollowing ?? false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loaded, setLoaded] = useState(!!initialFollowing);
 
   const { isSignedIn: clerkSignedIn } = useAuth();
   const isSignedIn = !!clerkSignedIn;
+
+  // Load actual follow state on mount
+  useEffect(() => {
+    if (!isSignedIn || loaded) return;
+    let cancelled = false;
+    fetch(`/api/users/${handle}/follow`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!cancelled && data) {
+          setIsFollowing(!!data.following);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [handle, isSignedIn, loaded]);
 
   async function handleToggleFollow() {
     if (!isSignedIn) {

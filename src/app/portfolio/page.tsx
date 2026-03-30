@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Sidebar from "@/components/Sidebar";
 import EmptyState from "@/components/EmptyState";
 import Icon from "@/components/Icon";
@@ -74,7 +76,10 @@ function PositionRow({ p }: { p: Position }) {
   );
 }
 
-function OrderRow({ order }: { order: Order }) {
+function OrderRow({ order, onCancel }: { order: Order; onCancel?: (id: string) => void }) {
+  const [cancelling, setCancelling] = useState(false);
+  const canCancel = (order.status === "pending" || order.status === "partial") && onCancel;
+
   const statusConfig: Record<string, { label: string; className: string }> = {
     pending: { label: "Pendente", className: "bg-accent/10 text-accent" },
     partial: { label: "Parcial", className: "bg-neutral-warn/15 text-neutral-warn" },
@@ -82,6 +87,25 @@ function OrderRow({ order }: { order: Order }) {
     cancelled: { label: "Cancelada", className: "bg-surface-raised text-text-tertiary" },
   };
   const status = statusConfig[order.status] ?? statusConfig.pending;
+
+  async function handleCancel() {
+    if (!onCancel) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.message || "Erro ao cancelar ordem");
+        return;
+      }
+      toast.success("Ordem cancelada");
+      onCancel(order.id);
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-lg border border-border bg-surface">
@@ -116,6 +140,16 @@ function OrderRow({ order }: { order: Order }) {
           <p className="text-text-tertiary">Total</p>
           <p className="font-mono font-medium text-text">{formatCurrency(order.price * order.quantity)}</p>
         </div>
+        {canCancel && (
+          <button
+            type="button"
+            disabled={cancelling}
+            onClick={handleCancel}
+            className="px-3 py-1.5 rounded-md border border-down/30 text-down text-[11px] font-medium hover:bg-down/10 transition-colors disabled:opacity-50"
+          >
+            {cancelling ? "..." : "Cancelar"}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -124,6 +158,12 @@ function OrderRow({ order }: { order: Order }) {
 export default function PortfolioPage() {
   const { isSignedIn: clerkSignedIn } = useAuth();
   const isSignedIn = !!clerkSignedIn;
+  const queryClient = useQueryClient();
+
+  const handleCancelOrder = () => {
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ["wallet"] });
+  };
 
   const { data: portfolioData, isLoading: loadingPortfolio } = useQuery({
     queryKey: ["portfolio"],
@@ -234,7 +274,7 @@ export default function PortfolioPage() {
               ) : (
                 <div className="space-y-2">
                   {openOrders.map((o) => (
-                    <OrderRow key={o.id} order={o} />
+                    <OrderRow key={o.id} order={o} onCancel={handleCancelOrder} />
                   ))}
                 </div>
               )}
@@ -250,7 +290,7 @@ export default function PortfolioPage() {
               ) : (
                 <div className="space-y-2">
                   {historyOrders.map((o) => (
-                    <OrderRow key={o.id} order={o} />
+                    <OrderRow key={o.id} order={o} onCancel={handleCancelOrder} />
                   ))}
                 </div>
               )}

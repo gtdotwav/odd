@@ -303,12 +303,24 @@ export default function CarteiraPage() {
             </button>
             <button
               type="button"
-              onClick={() => setWithdrawOpen(true)}
+              onClick={() => {
+                if (profile?.kyc_status !== "verified") {
+                  toast.error("Complete a verificação de identidade (KYC) em Configurações para realizar saques.", { duration: 5000 });
+                  return;
+                }
+                setWithdrawOpen(true);
+              }}
               className="px-5 py-2.5 rounded-lg border border-border text-text-secondary hover:text-text hover:border-border-strong text-sm font-medium transition-colors"
             >
               Sacar
             </button>
           </div>
+          {profile && profile.kyc_status !== "verified" && (
+            <p className="text-xs text-neutral-warn mt-3 flex items-center gap-1.5">
+              <Icon name="shield" className="w-3.5 h-3.5" />
+              Para sacar, complete a <a href="/config" className="underline font-medium hover:text-text">verificação de identidade</a>.
+            </p>
+          )}
         </div>
 
         {/* Quick info */}

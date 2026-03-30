@@ -1,5 +1,27 @@
 import { z } from "zod";
 
+// ── CPF validation ──────────────────────────────────────────────
+function isValidCpf(cpf: string): boolean {
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false; // all same digit
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
+  let check = 11 - (sum % 11);
+  if (check >= 10) check = 0;
+  if (parseInt(cpf[9]) !== check) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
+  check = 11 - (sum % 11);
+  if (check >= 10) check = 0;
+  if (parseInt(cpf[10]) !== check) return false;
+
+  return true;
+}
+
+// ── Schemas ─────────────────────────────────────────────────────
+
 export const createOrderSchema = z.object({
   market_id: z.string().uuid(),
   outcome_id: z.string().uuid().nullable().optional(),
@@ -42,20 +64,35 @@ export const tradeSchema = z.object({
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type MarketQueryInput = z.infer<typeof marketQuerySchema>;
+
 export const updateProfileSchema = z.object({
   display_name: z.string().min(2).max(50).optional(),
   handle: z.string().min(3).max(30).regex(/^[a-z0-9_]+$/, "Apenas letras minúsculas, números e _").optional(),
   bio: z.string().max(200).optional(),
   full_name: z.string().min(3).max(100).optional(),
-  cpf: z.string().regex(/^\d{11}$/, "CPF deve ter 11 dígitos").optional(),
-  date_of_birth: z.string().optional(),
+  cpf: z.string().regex(/^\d{11}$/, "CPF deve ter 11 dígitos").refine(isValidCpf, "CPF inválido").optional(),
+  date_of_birth: z.string().refine((val) => {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    const age = (now.getTime() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    return age >= 18 && age <= 120;
+  }, "Idade deve ser entre 18 e 120 anos").optional(),
   phone: z.string().regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos").optional(),
 });
 
 export const savePixSchema = z.object({
   pix_key: z.string().min(1).max(100),
   pix_key_type: z.enum(["cpf", "email", "phone", "random"]),
-});
+}).refine((data) => {
+  switch (data.pix_key_type) {
+    case "cpf": return /^\d{11}$/.test(data.pix_key);
+    case "email": return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.pix_key);
+    case "phone": return /^\d{10,11}$/.test(data.pix_key);
+    case "random": return data.pix_key.length >= 10;
+    default: return true;
+  }
+}, { message: "Chave PIX inválida para o tipo selecionado" });
 
 export type DepositInput = z.infer<typeof depositSchema>;
 export type WithdrawInput = z.infer<typeof withdrawSchema>;

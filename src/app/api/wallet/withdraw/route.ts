@@ -37,6 +37,26 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
 
+    // Check KYC status — must be verified to withdraw
+    const { data: profileData } = await supabase.rpc("get_user_profile", {
+      p_clerk_id: userId,
+    });
+
+    const profile = profileData as Record<string, unknown> | null;
+    if (!profile) {
+      return NextResponse.json(
+        { error: "profile_not_found", message: "Perfil não encontrado" },
+        { status: 404 },
+      );
+    }
+
+    if (profile.kyc_status !== "verified") {
+      return NextResponse.json(
+        { error: "kyc_required", message: "Complete a verificação de identidade (KYC) para realizar saques." },
+        { status: 403 },
+      );
+    }
+
     // Check current balance
     const { data: walletData, error: walletError } = await supabase.rpc("get_user_wallet", {
       p_clerk_id: userId,
