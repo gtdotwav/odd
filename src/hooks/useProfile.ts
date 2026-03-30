@@ -9,6 +9,12 @@ export interface UserProfile {
   display_name: string;
   avatar_url: string | null;
   bio: string | null;
+  full_name: string | null;
+  cpf: string | null;
+  date_of_birth: string | null;
+  phone: string | null;
+  pix_key: string | null;
+  pix_key_type: string | null;
   kyc_status: string;
   balance: number;
   created_at: string;

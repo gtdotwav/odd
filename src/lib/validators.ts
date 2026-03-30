@@ -36,5 +36,22 @@ export const withdrawSchema = z.object({
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type MarketQueryInput = z.infer<typeof marketQuerySchema>;
+export const updateProfileSchema = z.object({
+  display_name: z.string().min(2).max(50).optional(),
+  handle: z.string().min(3).max(30).regex(/^[a-z0-9_]+$/, "Apenas letras minúsculas, números e _").optional(),
+  bio: z.string().max(200).optional(),
+  full_name: z.string().min(3).max(100).optional(),
+  cpf: z.string().regex(/^\d{11}$/, "CPF deve ter 11 dígitos").optional(),
+  date_of_birth: z.string().optional(),
+  phone: z.string().regex(/^\d{10,11}$/, "Telefone deve ter 10 ou 11 dígitos").optional(),
+});
+
+export const savePixSchema = z.object({
+  pix_key: z.string().min(1).max(100),
+  pix_key_type: z.enum(["cpf", "email", "phone", "random"]),
+});
+
 export type DepositInput = z.infer<typeof depositSchema>;
 export type WithdrawInput = z.infer<typeof withdrawSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type SavePixInput = z.infer<typeof savePixSchema>;

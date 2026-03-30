@@ -11,6 +11,12 @@ export interface Database {
           display_name: string;
           avatar_url: string | null;
           bio: string | null;
+          full_name: string | null;
+          cpf: string | null;
+          date_of_birth: string | null;
+          phone: string | null;
+          pix_key: string | null;
+          pix_key_type: "cpf" | "email" | "phone" | "random" | null;
           kyc_status: "none" | "pending" | "verified" | "rejected";
           role: "user" | "admin" | "moderator";
           created_at: string;
@@ -18,6 +24,22 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"], "created_at" | "updated_at" | "role"> & { role?: "user" | "admin" | "moderator" };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
+      };
+      kyc_documents: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: "id_front" | "proof_address";
+          storage_path: string;
+          original_filename: string;
+          status: "pending" | "approved" | "rejected";
+          rejection_reason: string | null;
+          uploaded_at: string;
+          reviewed_at: string | null;
+        };
+        Insert: Omit<Database["public"]["Tables"]["kyc_documents"]["Row"], "id" | "uploaded_at" | "reviewed_at" | "status" | "rejection_reason">;
+        Update: Partial<Database["public"]["Tables"]["kyc_documents"]["Insert"]> & { status?: string; rejection_reason?: string | null; reviewed_at?: string | null };
         Relationships: [];
       };
       markets: {
@@ -278,6 +300,11 @@ export interface Database {
       admin_list_comments: { Args: { p_clerk_id: string; p_market_id?: string | null; p_search?: string | null; p_limit?: number; p_offset?: number }; Returns: Json };
       admin_delete_comment: { Args: { p_clerk_id: string; p_comment_id: string }; Returns: Json };
       admin_recent_activity: { Args: { p_clerk_id: string; p_limit?: number }; Returns: Json };
+      update_profile: { Args: { p_clerk_id: string; p_display_name?: string | null; p_handle?: string | null; p_bio?: string | null; p_full_name?: string | null; p_cpf?: string | null; p_date_of_birth?: string | null; p_phone?: string | null }; Returns: Json };
+      save_pix_key: { Args: { p_clerk_id: string; p_pix_key: string; p_pix_key_type: string }; Returns: Json };
+      submit_kyc_document: { Args: { p_clerk_id: string; p_type: string; p_storage_path: string; p_original_filename: string }; Returns: Json };
+      get_kyc_status: { Args: { p_clerk_id: string }; Returns: Json };
+      admin_review_kyc: { Args: { p_clerk_id: string; p_document_id: string; p_status: string; p_reason?: string | null }; Returns: Json };
     };
     Enums: Record<string, never>;
   };
