@@ -28,19 +28,10 @@ export default function Navbar() {
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  let isSignedIn = false;
-  let user: ReturnType<typeof useUser>["user"] = null;
-  let signOut: (() => Promise<void>) | null = null;
-
-  try {
-    const clerkUser = useUser();
-    const clerk = useClerk();
-    isSignedIn = !!clerkUser.isSignedIn;
-    user = clerkUser.user;
-    signOut = () => clerk.signOut();
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn, user } = useUser();
+  const clerk = useClerk();
+  const isSignedIn = !!clerkSignedIn;
+  const signOut = () => clerk.signOut();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

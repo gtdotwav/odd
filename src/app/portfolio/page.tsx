@@ -122,13 +122,8 @@ function OrderRow({ order }: { order: Order }) {
 }
 
 export default function PortfolioPage() {
-  let isSignedIn = false;
-  try {
-    const authState = useAuth();
-    isSignedIn = !!authState.isSignedIn;
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   const { data: portfolioData, isLoading: loadingPortfolio } = useQuery({
     queryKey: ["portfolio"],

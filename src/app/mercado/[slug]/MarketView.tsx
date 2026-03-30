@@ -18,13 +18,8 @@ function TradeTicket({ market }: { market: MarketDetail }) {
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  let isSignedIn = false;
-  try {
-    const authState = useAuth();
-    isSignedIn = !!authState.isSignedIn;
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   const price = side === "yes" ? market.priceYes : market.priceNo;
   const numAmount = parseFloat(amount) || 0;
@@ -194,13 +189,8 @@ function CommentInput({ marketId, onSuccess }: { marketId: string; onSuccess: ()
   const remaining = MAX_COMMENT_LENGTH - text.length;
   const overLimit = remaining < 0;
 
-  let isSignedIn = false;
-  try {
-    const authState = useAuth();
-    isSignedIn = !!authState.isSignedIn;
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   const handleSubmit = async () => {
     if (!isSignedIn) {

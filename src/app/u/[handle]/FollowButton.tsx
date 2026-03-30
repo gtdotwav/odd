@@ -8,13 +8,8 @@ export default function FollowButton({ handle }: { handle: string }) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  let isSignedIn = false;
-  try {
-    const authState = useAuth();
-    isSignedIn = !!authState.isSignedIn;
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   async function handleToggleFollow() {
     if (!isSignedIn) {

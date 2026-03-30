@@ -106,13 +106,8 @@ function NotificationsSkeleton() {
 export default function NotificacoesPage() {
   const queryClient = useQueryClient();
 
-  let isSignedIn = false;
-  try {
-    const authState = useAuth();
-    isSignedIn = !!authState.isSignedIn;
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   const { data, isLoading } = useQuery<NotificationsResponse>({
     queryKey: ["notifications"],

@@ -9,13 +9,8 @@ import { MarketGridSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 
 export default function WatchlistPage() {
-  let isSignedIn = false;
-  try {
-    const authState = useAuth();
-    isSignedIn = !!authState.isSignedIn;
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   const { data, isLoading } = useQuery({
     queryKey: ["watchlist"],

@@ -242,13 +242,8 @@ export default function CarteiraPage() {
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
 
-  let isSignedIn = false;
-  try {
-    const authState = useAuth();
-    isSignedIn = !!authState.isSignedIn;
-  } catch {
-    // Clerk not configured
-  }
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   const { data, isLoading } = useQuery<WalletData>({
     queryKey: ["wallet"],

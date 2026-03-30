@@ -35,12 +35,7 @@ export const metadata: Metadata = {
   },
 };
 
-const hasClerkKeys =
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
-  !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes("placeholder");
-
 function AuthProvider({ children }: { children: React.ReactNode }) {
-  if (!hasClerkKeys) return <>{children}</>;
   return <ClerkProvider localization={ptBR}>{children}</ClerkProvider>;
 }
 
