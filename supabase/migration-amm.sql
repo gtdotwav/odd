@@ -101,15 +101,9 @@ BEGIN
     RETURN jsonb_build_object('error', 'market_not_active', 'message', 'Market is not active for trading');
   END IF;
 
-  -- ── Optimistic concurrency: verify pool hasn't changed ──────────────────
-  -- Allow small floating point differences (< 0.01) due to rounding
-  IF ABS(v_current_pool_yes - p_new_pool_yes + (p_new_pool_yes - p_new_pool_yes)) > 0 THEN
-    -- We just check pool_k hasn't drastically changed since the quote
-    -- A >1% k change means another trade happened
-    IF v_current_pool_k > 0 AND ABS(v_current_pool_yes * v_current_pool_no - v_current_pool_k) / v_current_pool_k > 0.01 THEN
-      RETURN jsonb_build_object('error', 'pool_stale', 'message', 'Pool state changed, please retry');
-    END IF;
-  END IF;
+  -- ── Optimistic concurrency check removed ─────────────────────────────────
+  -- The old check was a no-op. Slippage guards are applied after server-side
+  -- recalculation below (comparing server result vs client expectation).
 
   -- ── Recalculate with current pool state for safety ──────────────────────
   -- We trust the app-layer calculation but use the locked pool values
@@ -146,8 +140,14 @@ BEGIN
         RETURN jsonb_build_object('error', 'zero_shares', 'message', 'Trade too small');
       END IF;
 
-      IF v_final_pool_yes < 1 OR v_final_pool_no < 1 THEN
+      IF v_final_pool_yes < 100 OR v_final_pool_no < 100 THEN
         RETURN jsonb_build_object('error', 'insufficient_liquidity', 'message', 'Insufficient pool liquidity');
+      END IF;
+
+      -- ── Slippage guard: reject if shares differ >5% from client expectation
+      IF p_expected_shares > 0 AND ABS(v_shares_out - p_expected_shares) / p_expected_shares > 0.05 THEN
+        RETURN jsonb_build_object('error', 'slippage_exceeded',
+          'message', format('Preço mudou: esperava %s contratos, receberia %s', round(p_expected_shares::numeric, 2), round(v_shares_out::numeric, 2)));
       END IF;
 
       -- ── Check wallet balance ──────────────────────────────────────────
@@ -288,8 +288,14 @@ BEGIN
         RETURN jsonb_build_object('error', 'payout_below_fee', 'message', 'Payout less than fee');
       END IF;
 
-      IF v_final_pool_yes < 1 OR v_final_pool_no < 1 THEN
+      IF v_final_pool_yes < 100 OR v_final_pool_no < 100 THEN
         RETURN jsonb_build_object('error', 'insufficient_liquidity', 'message', 'Insufficient pool liquidity');
+      END IF;
+
+      -- ── Slippage guard: reject if payout differs >5% from client expectation
+      IF p_expected_payout > 0 AND ABS(v_net_payout - p_expected_payout) / p_expected_payout > 0.05 THEN
+        RETURN jsonb_build_object('error', 'slippage_exceeded',
+          'message', format('Preço mudou: esperava R$%s, receberia R$%s', round(p_expected_payout::numeric, 2), round(v_net_payout::numeric, 2)));
       END IF;
 
       -- ── Credit wallet ─────────────────────────────────────────────────

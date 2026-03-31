@@ -35,6 +35,7 @@ function TradeTicket({ market }: { market: MarketDetail }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quote, setQuote] = useState<TradeQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const { isSignedIn: clerkSignedIn } = useAuth();
@@ -86,11 +87,12 @@ function TradeTicket({ market }: { market: MarketDetail }) {
     ? `Você tem ${myShares.toFixed(1)} contratos`
     : null;
 
-  // Reset amount when switching action
+  // Reset amount when switching action or side
   useEffect(() => {
     setAmount("");
     setQuote(null);
-  }, [action]);
+    setShowConfirm(false);
+  }, [action, side]);
 
   // Fetch quote when amount/side/action changes (debounced)
   const fetchQuote = useCallback(async (s: string, act: string, a: number) => {
@@ -114,6 +116,7 @@ function TradeTicket({ market }: { market: MarketDetail }) {
   }, [market.slug]);
 
   useEffect(() => {
+    setShowConfirm(false);
     const timeout = setTimeout(() => {
       if (numAmount >= MIN_AMOUNT) {
         fetchQuote(side, action, numAmount);
@@ -131,6 +134,13 @@ function TradeTicket({ market }: { market: MarketDetail }) {
     }
     if (!validAmount || isSubmitting) return;
 
+    // Confirmation for large trades
+    if (numAmount >= 500 && !showConfirm) {
+      setShowConfirm(true);
+      return;
+    }
+    setShowConfirm(false);
+
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/markets/${market.slug}/trade`, {
@@ -147,6 +157,8 @@ function TradeTicket({ market }: { market: MarketDetail }) {
           });
         } else if (data.error === "insufficient_position") {
           toast.error("Contratos insuficientes para vender.");
+        } else if (data.error === "slippage_exceeded") {
+          toast.error("O preço mudou desde sua cotação. Tente novamente.");
         } else {
           toast.error(msg);
         }
@@ -168,10 +180,6 @@ function TradeTicket({ market }: { market: MarketDetail }) {
       setIsSubmitting(false);
     }
   };
-
-  const payout = action === "buy" ? (quote?.shares ?? 0) : (quote?.payout ?? 0);
-  const profit = action === "buy" ? payout - numAmount : payout;
-  const profitPct = numAmount > 0 && action === "buy" ? (profit / numAmount) * 100 : 0;
 
   return (
     <div className="bg-surface rounded-lg border border-border p-4">
@@ -228,10 +236,15 @@ function TradeTicket({ market }: { market: MarketDetail }) {
         </button>
       </div>
 
-      {/* Show position info when selling */}
-      {action === "sell" && isSignedIn && (
+      {/* Helper */}
+      <p className="text-[10px] text-text-tertiary mb-3 leading-relaxed">
+        Cada contrato vale <span className="font-medium text-text-secondary">R$ 1,00</span> se o resultado estiver correto. Preço menor = maior retorno.
+      </p>
+
+      {/* Show position info */}
+      {isSignedIn && myShares > 0 && (
         <div className="text-xs text-text-secondary mb-2 px-1">
-          Seus contratos {side === "yes" ? "Sim" : "Não"}: <span className="font-mono font-medium text-text">{myShares.toFixed(1)}</span>
+          Sua posição {side === "yes" ? "Sim" : "Não"}: <span className="font-mono font-medium text-text">{myShares.toFixed(1)} contratos</span>
         </div>
       )}
 
@@ -302,36 +315,77 @@ function TradeTicket({ market }: { market: MarketDetail }) {
             </div>
           ) : quote ? (
             <>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Preço médio</span>
-                <span className="font-mono text-text">R$ {quote.avgPrice.toFixed(4)}</span>
-              </div>
               {action === "buy" ? (
                 <>
                   <div className="flex justify-between">
-                    <span className="text-text-secondary">Contratos</span>
-                    <span className="font-mono text-text">{quote.shares.toFixed(1)}</span>
+                    <span className="text-text-secondary">Você paga</span>
+                    <span className="font-mono text-text">R$ {numAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-text-secondary">Retorno se {side === "yes" ? "Sim" : "Não"}</span>
-                    <span className="font-mono text-up">R$ {payout.toFixed(2)} (+{profitPct.toFixed(1)}%)</span>
+                    <span className="text-text-secondary">Taxa ({((market.feeRate ?? 0.02) * 100).toFixed(0)}%)</span>
+                    <span className="font-mono text-text-tertiary">- R$ {quote.fee.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-border my-1" />
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Contratos</span>
+                    <span className="font-mono text-text font-medium">{quote.shares.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Preço médio</span>
+                    <span className="font-mono text-text">R$ {quote.avgPrice.toFixed(2)}/un</span>
+                  </div>
+                  <div className="border-t border-border my-1" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-up font-medium flex items-center gap-1">
+                      <Icon name="check" className="w-3 h-3" />
+                      Se acertar
+                    </span>
+                    <span className="font-mono text-up font-medium">
+                      +R$ {(quote.shares - numAmount).toFixed(2)} ({((quote.shares / numAmount - 1) * 100).toFixed(0)}%)
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-text-tertiary pl-4">
+                    Retorno total: R$ {quote.shares.toFixed(2)}
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-down font-medium flex items-center gap-1">
+                      <Icon name="x" className="w-3 h-3" />
+                      Se errar
+                    </span>
+                    <span className="font-mono text-down font-medium">-R$ {numAmount.toFixed(2)}</span>
                   </div>
                 </>
               ) : (
-                <div className="flex justify-between">
-                  <span className="text-text-secondary">Você recebe</span>
-                  <span className="font-mono text-up">{formatCurrency(payout)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Contratos vendidos</span>
+                    <span className="font-mono text-text">{numAmount.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Valor bruto</span>
+                    <span className="font-mono text-text">R$ {((quote.payout ?? 0) + quote.fee).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Taxa ({((market.feeRate ?? 0.02) * 100).toFixed(0)}%)</span>
+                    <span className="font-mono text-text-tertiary">- R$ {quote.fee.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-border my-1" />
+                  <div className="flex justify-between font-medium">
+                    <span className="text-text">Você recebe</span>
+                    <span className="font-mono text-up">R$ {(quote.payout ?? 0).toFixed(2)}</span>
+                  </div>
+                </>
               )}
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Taxa ({((market.feeRate ?? 0.02) * 100).toFixed(0)}%)</span>
-                <span className="font-mono text-text">R$ {quote.fee.toFixed(2)}</span>
-              </div>
-              {quote.priceImpact > 0.01 && (
-                <div className="flex justify-between">
-                  <span className="text-text-secondary">Impacto no preço</span>
-                  <span className={`font-mono ${Math.abs(quote.priceImpact) > 0.05 ? "text-neutral-warn" : "text-text-tertiary"}`}>
-                    {(quote.priceImpact * 100).toFixed(2)}%
+              {Math.abs(quote.priceImpact) > 0.01 && (
+                <div className={`flex items-center gap-1.5 mt-1 px-2 py-1.5 rounded text-[11px] ${
+                  Math.abs(quote.priceImpact) > 0.05
+                    ? "bg-down/10 text-down"
+                    : "bg-amber-500/10 text-amber-500"
+                }`}>
+                  <Icon name="alert-triangle" className="w-3 h-3 shrink-0" />
+                  <span>
+                    Impacto no preço: {(Math.abs(quote.priceImpact) * 100).toFixed(1)}%
+                    {Math.abs(quote.priceImpact) > 0.05 && " — considere dividir em operações menores"}
                   </span>
                 </div>
               )}
@@ -357,7 +411,9 @@ function TradeTicket({ market }: { market: MarketDetail }) {
           disabled={!validAmount || isSubmitting || quoteLoading}
           onClick={handleTrade}
           className={`w-full py-2.5 rounded-md disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors ${
-            action === "buy"
+            showConfirm
+              ? "bg-amber-600 hover:bg-amber-500"
+              : action === "buy"
               ? "bg-highlight hover:bg-highlight-hover"
               : "bg-down hover:bg-down/80"
           }`}
@@ -372,6 +428,8 @@ function TradeTicket({ market }: { market: MarketDetail }) {
             ? "Contratos insuficientes"
             : !validAmount
             ? "Valor inválido"
+            : showConfirm
+            ? "Confirmar operação?"
             : action === "buy"
             ? `Comprar ${side === "yes" ? "Sim" : "Não"} · R$ ${numAmount.toFixed(2)}`
             : `Vender ${numAmount.toFixed(1)} ${side === "yes" ? "Sim" : "Não"}`}

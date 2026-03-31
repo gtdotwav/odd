@@ -47,18 +47,18 @@ export const marketQuerySchema = z.object({
 });
 
 export const depositSchema = z.object({
-  amount: z.number().min(5).max(50000),
+  amount: z.number().min(5).max(50000).transform(v => Math.round(v * 100) / 100),
 });
 
 export const withdrawSchema = z.object({
-  amount: z.number().min(10).max(50000),
+  amount: z.number().min(10).max(50000).transform(v => Math.round(v * 100) / 100),
   pix_key: z.string().min(1),
 });
 
 export const tradeSchema = z.object({
   side: z.enum(["yes", "no"]),
   action: z.enum(["buy", "sell"]),
-  amount: z.number().positive().max(1_000_000),
+  amount: z.number().positive().max(1_000_000).transform(v => Math.round(v * 100) / 100),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

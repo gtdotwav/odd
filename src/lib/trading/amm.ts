@@ -57,7 +57,7 @@ export interface SellResult {
 
 export const DEFAULT_FEE_RATE = TRADE_FEE_RATE;
 export const MIN_TRADE_AMOUNT = 1;
-export const MIN_POOL_SHARES = 1; // prevent pool from going to zero
+export const MIN_POOL_SHARES = 100; // prevent pool from draining — keeps prices meaningful
 
 // ─── Core Functions ──────────────────────────────────────────────────────────
 
