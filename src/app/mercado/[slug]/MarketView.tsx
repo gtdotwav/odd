@@ -15,6 +15,7 @@ const MAX_AMOUNT = 100000;
 
 interface TradeQuote {
   shares: number;
+  payout: number;
   cost: number;
   fee: number;
   avgPrice: number;
@@ -29,6 +30,7 @@ interface TradeQuote {
 
 function TradeTicket({ market }: { market: MarketDetail }) {
   const [side, setSide] = useState<"yes" | "no">("yes");
+  const [action, setAction] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quote, setQuote] = useState<TradeQuote | null>(null);
@@ -47,26 +49,56 @@ function TradeTicket({ market }: { market: MarketDetail }) {
   });
   const balance = walletData?.balance ?? 0;
 
+  // Fetch user positions for this market
+  const { data: portfolioData } = useQuery({
+    queryKey: ["portfolio"],
+    queryFn: () => fetch("/api/portfolio").then((r) => r.json()),
+    enabled: isSignedIn,
+    staleTime: 10 * 1000,
+  });
+  const positions = (portfolioData?.positions ?? []) as Array<{
+    market_id: string;
+    side: string;
+    quantity: number;
+  }>;
+  const myPosition = positions.find(
+    (p) => p.market_id === market.id && p.side === side,
+  );
+  const myShares = myPosition?.quantity ?? 0;
+
   const numAmount = parseFloat(amount) || 0;
   const tooLow = numAmount > 0 && numAmount < MIN_AMOUNT;
   const tooHigh = numAmount > MAX_AMOUNT;
-  const insufficientBalance = numAmount > 0 && numAmount > balance && isSignedIn;
-  const validAmount = numAmount >= MIN_AMOUNT && numAmount <= MAX_AMOUNT && !insufficientBalance;
+  const insufficientBalance = action === "buy" && numAmount > 0 && numAmount > balance && isSignedIn;
+  const insufficientShares = action === "sell" && numAmount > 0 && numAmount > myShares && isSignedIn;
+  const validAmount =
+    numAmount >= MIN_AMOUNT &&
+    numAmount <= MAX_AMOUNT &&
+    !insufficientBalance &&
+    !insufficientShares;
   const error = tooLow
     ? `Mínimo R$ ${MIN_AMOUNT}`
     : tooHigh
     ? `Máximo R$ ${MAX_AMOUNT.toLocaleString("pt-BR")}`
     : insufficientBalance
     ? "Saldo insuficiente"
+    : insufficientShares
+    ? `Você tem ${myShares.toFixed(1)} contratos`
     : null;
 
-  // Fetch quote when amount/side changes (debounced)
-  const fetchQuote = useCallback(async (s: string, a: number) => {
+  // Reset amount when switching action
+  useEffect(() => {
+    setAmount("");
+    setQuote(null);
+  }, [action]);
+
+  // Fetch quote when amount/side/action changes (debounced)
+  const fetchQuote = useCallback(async (s: string, act: string, a: number) => {
     if (a < MIN_AMOUNT) { setQuote(null); return; }
     setQuoteLoading(true);
     try {
       const res = await fetch(
-        `/api/markets/${market.slug}/trade?side=${s}&action=buy&amount=${a}`
+        `/api/markets/${market.slug}/trade?side=${s}&action=${act}&amount=${a}`
       );
       const data = await res.json();
       if (data.error) {
@@ -84,15 +116,15 @@ function TradeTicket({ market }: { market: MarketDetail }) {
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (numAmount >= MIN_AMOUNT) {
-        fetchQuote(side, numAmount);
+        fetchQuote(side, action, numAmount);
       } else {
         setQuote(null);
       }
     }, 300);
     return () => clearTimeout(timeout);
-  }, [side, numAmount, fetchQuote]);
+  }, [side, action, numAmount, fetchQuote]);
 
-  const handleBuy = async () => {
+  const handleTrade = async () => {
     if (!isSignedIn) {
       toast.error("Faça login para negociar");
       return;
@@ -104,7 +136,7 @@ function TradeTicket({ market }: { market: MarketDetail }) {
       const res = await fetch(`/api/markets/${market.slug}/trade`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ side, action: "buy", amount: numAmount }),
+        body: JSON.stringify({ side, action, amount: numAmount }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -113,14 +145,19 @@ function TradeTicket({ market }: { market: MarketDetail }) {
           toast.error("Saldo insuficiente. Deposite para continuar.", {
             action: { label: "Depositar", onClick: () => window.location.href = "/carteira" },
           });
+        } else if (data.error === "insufficient_position") {
+          toast.error("Contratos insuficientes para vender.");
         } else {
           toast.error(msg);
         }
       } else {
-        toast.success(`Comprou ${data.shares?.toFixed(1) ?? ""} contratos ${side === "yes" ? "Sim" : "Não"}`);
+        if (action === "buy") {
+          toast.success(`Comprou ${data.shares?.toFixed(1) ?? ""} contratos ${side === "yes" ? "Sim" : "Não"}`);
+        } else {
+          toast.success(`Vendeu ${numAmount.toFixed(1)} contratos por ${formatCurrency(data.payout ?? 0)}`);
+        }
         setAmount("");
         setQuote(null);
-        // Refresh balance and portfolio
         queryClient.invalidateQueries({ queryKey: ["wallet"] });
         queryClient.invalidateQueries({ queryKey: ["portfolio"] });
         queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -132,9 +169,9 @@ function TradeTicket({ market }: { market: MarketDetail }) {
     }
   };
 
-  const payout = quote ? quote.shares : 0;
-  const profit = payout - numAmount;
-  const profitPct = numAmount > 0 ? (profit / numAmount) * 100 : 0;
+  const payout = action === "buy" ? (quote?.shares ?? 0) : (quote?.payout ?? 0);
+  const profit = action === "buy" ? payout - numAmount : payout;
+  const profitPct = numAmount > 0 && action === "buy" ? (profit / numAmount) * 100 : 0;
 
   return (
     <div className="bg-surface rounded-lg border border-border p-4">
@@ -147,6 +184,29 @@ function TradeTicket({ market }: { market: MarketDetail }) {
         )}
       </div>
 
+      {/* Buy/Sell tabs */}
+      <div className="flex rounded-md border border-border overflow-hidden mb-3">
+        <button
+          type="button"
+          onClick={() => setAction("buy")}
+          className={`flex-1 py-1.5 text-xs font-semibold transition-colors ${
+            action === "buy" ? "bg-up/15 text-up" : "text-text-secondary hover:bg-surface-raised"
+          }`}
+        >
+          Comprar
+        </button>
+        <button
+          type="button"
+          onClick={() => setAction("sell")}
+          className={`flex-1 py-1.5 text-xs font-semibold transition-colors ${
+            action === "sell" ? "bg-down/15 text-down" : "text-text-secondary hover:bg-surface-raised"
+          }`}
+        >
+          Vender
+        </button>
+      </div>
+
+      {/* Side selector */}
       <div className="flex rounded-md border border-border overflow-hidden mb-4">
         <button
           type="button"
@@ -168,15 +228,26 @@ function TradeTicket({ market }: { market: MarketDetail }) {
         </button>
       </div>
 
-      <label className="block text-xs text-text-secondary mb-1.5">Valor</label>
+      {/* Show position info when selling */}
+      {action === "sell" && isSignedIn && (
+        <div className="text-xs text-text-secondary mb-2 px-1">
+          Seus contratos {side === "yes" ? "Sim" : "Não"}: <span className="font-mono font-medium text-text">{myShares.toFixed(1)}</span>
+        </div>
+      )}
+
+      <label className="block text-xs text-text-secondary mb-1.5">
+        {action === "buy" ? "Valor (R$)" : "Contratos para vender"}
+      </label>
       <div className="relative mb-3">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">R$</span>
+        {action === "buy" && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">R$</span>
+        )}
         <input
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="0,00"
-          className={`w-full pl-9 pr-3 py-2.5 rounded-md border bg-surface-raised text-text font-mono text-sm focus:outline-none transition-colors ${
+          placeholder={action === "buy" ? "0,00" : "0"}
+          className={`w-full ${action === "buy" ? "pl-9" : "pl-3"} pr-3 py-2.5 rounded-md border bg-surface-raised text-text font-mono text-sm focus:outline-none transition-colors ${
             error ? "border-down focus:border-down" : "border-border focus:border-accent"
           }`}
         />
@@ -190,18 +261,38 @@ function TradeTicket({ market }: { market: MarketDetail }) {
         </p>
       )}
 
-      <div className="flex gap-2 mb-4">
-        {["20", "50", "100", "200"].map((v) => (
-          <button
-            type="button"
-            key={v}
-            onClick={() => setAmount(v)}
-            className="flex-1 py-1.5 rounded text-xs font-medium border border-border text-text-secondary hover:border-border-strong hover:text-text transition-colors"
-          >
-            R${v}
-          </button>
-        ))}
-      </div>
+      {action === "buy" && (
+        <div className="flex gap-2 mb-4">
+          {["20", "50", "100", "200"].map((v) => (
+            <button
+              type="button"
+              key={v}
+              onClick={() => setAmount(v)}
+              className="flex-1 py-1.5 rounded text-xs font-medium border border-border text-text-secondary hover:border-border-strong hover:text-text transition-colors"
+            >
+              R${v}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {action === "sell" && myShares > 0 && (
+        <div className="flex gap-2 mb-4">
+          {[25, 50, 75, 100].map((pct) => {
+            const val = Math.floor((myShares * pct) / 100 * 10) / 10;
+            return (
+              <button
+                type="button"
+                key={pct}
+                onClick={() => setAmount(String(val))}
+                className="flex-1 py-1.5 rounded text-xs font-medium border border-border text-text-secondary hover:border-border-strong hover:text-text transition-colors"
+              >
+                {pct}%
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {numAmount >= MIN_AMOUNT && (
         <div className="space-y-2 mb-4 p-3 rounded-md bg-surface-raised text-xs">
@@ -215,14 +306,23 @@ function TradeTicket({ market }: { market: MarketDetail }) {
                 <span className="text-text-secondary">Preço médio</span>
                 <span className="font-mono text-text">R$ {quote.avgPrice.toFixed(4)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Contratos</span>
-                <span className="font-mono text-text">{quote.shares.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-secondary">Retorno se {side === "yes" ? "Sim" : "Não"}</span>
-                <span className="font-mono text-up">R$ {payout.toFixed(2)} (+{profitPct.toFixed(1)}%)</span>
-              </div>
+              {action === "buy" ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Contratos</span>
+                    <span className="font-mono text-text">{quote.shares.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Retorno se {side === "yes" ? "Sim" : "Não"}</span>
+                    <span className="font-mono text-up">R$ {payout.toFixed(2)} (+{profitPct.toFixed(1)}%)</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Você recebe</span>
+                  <span className="font-mono text-up">{formatCurrency(payout)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-text-secondary">Taxa ({((market.feeRate ?? 0.02) * 100).toFixed(0)}%)</span>
                 <span className="font-mono text-text">R$ {quote.fee.toFixed(2)}</span>
@@ -230,7 +330,7 @@ function TradeTicket({ market }: { market: MarketDetail }) {
               {quote.priceImpact > 0.01 && (
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Impacto no preço</span>
-                  <span className={`font-mono ${quote.priceImpact > 0.05 ? "text-neutral-warn" : "text-text-tertiary"}`}>
+                  <span className={`font-mono ${Math.abs(quote.priceImpact) > 0.05 ? "text-neutral-warn" : "text-text-tertiary"}`}>
                     {(quote.priceImpact * 100).toFixed(2)}%
                   </span>
                 </div>
@@ -255,18 +355,26 @@ function TradeTicket({ market }: { market: MarketDetail }) {
         <button
           type="button"
           disabled={!validAmount || isSubmitting || quoteLoading}
-          onClick={handleBuy}
-          className="w-full py-2.5 rounded-md bg-highlight hover:bg-highlight-hover disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors"
+          onClick={handleTrade}
+          className={`w-full py-2.5 rounded-md disabled:bg-surface-raised disabled:text-text-tertiary text-white font-semibold text-sm transition-colors ${
+            action === "buy"
+              ? "bg-highlight hover:bg-highlight-hover"
+              : "bg-down hover:bg-down/80"
+          }`}
         >
           {isSubmitting
             ? "Processando..."
             : !amount
-            ? "Insira um valor"
+            ? `Insira ${action === "buy" ? "um valor" : "a quantidade"}`
             : insufficientBalance
             ? "Saldo insuficiente"
+            : insufficientShares
+            ? "Contratos insuficientes"
             : !validAmount
             ? "Valor inválido"
-            : `Comprar ${side === "yes" ? "Sim" : "Não"} · R$ ${numAmount.toFixed(2)}`}
+            : action === "buy"
+            ? `Comprar ${side === "yes" ? "Sim" : "Não"} · R$ ${numAmount.toFixed(2)}`
+            : `Vender ${numAmount.toFixed(1)} ${side === "yes" ? "Sim" : "Não"}`}
         </button>
       )}
     </div>
@@ -390,7 +498,7 @@ function Comments({ marketId }: { marketId: string }) {
                 <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] text-accent font-bold">
                   {c.user.display_name?.[0]?.toUpperCase() ?? "U"}
                 </div>
-                <span className="text-sm font-medium text-accent">@{c.user.handle}</span>
+                <Link href={`/u/${c.user.handle}`} className="text-sm font-medium text-accent hover:underline">@{c.user.handle}</Link>
                 <span className="text-[10px] text-text-tertiary ml-auto">{formatRelativeTime(c.created_at)}</span>
               </div>
               <p className="text-sm text-text-secondary leading-relaxed ml-8">{c.text}</p>
@@ -421,12 +529,28 @@ function WatchlistButton({ marketId }: { marketId: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
+
+  // Load initial watchlist state
+  const { data: watchlistData } = useQuery({
+    queryKey: ["watchlist"],
+    queryFn: () => fetch("/api/watchlist").then((r) => r.json()),
+    enabled: isSignedIn,
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    if (watchlistData?.watchlist) {
+      const ids = (watchlistData.watchlist as Array<{ market_id: string }>).map((w) => w.market_id);
+      setIsInWatchlist(ids.includes(marketId));
+    }
+  }, [watchlistData, marketId]);
+
   const handleToggle = async () => {
-    let isSignedIn = false;
-    try {
-      // Check will be done server-side; if 401, show toast
-    } catch {
-      // noop
+    if (!isSignedIn) {
+      toast.error("Faça login para seguir mercados");
+      return;
     }
 
     setIsLoading(true);
@@ -468,9 +592,104 @@ function WatchlistButton({ marketId }: { marketId: string }) {
   );
 }
 
+function ClaimButton({ market }: { market: MarketDetail }) {
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleClaim = async () => {
+    setIsClaiming(true);
+    try {
+      const res = await fetch(`/api/markets/${market.slug}/claim`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error === "nothing_to_claim") {
+          toast.info("Nenhum ganho para resgatar neste mercado.");
+        } else {
+          toast.error(data.message || "Erro ao resgatar");
+        }
+      } else {
+        const amount = data.payout_amount ?? data.amount ?? 0;
+        toast.success(`Resgatado! ${formatCurrency(amount)} adicionado à carteira.`);
+        setClaimed(true);
+        queryClient.invalidateQueries({ queryKey: ["wallet"] });
+        queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      }
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClaim}
+      disabled={isClaiming || claimed}
+      className="mt-3 px-4 py-2 rounded-md bg-up/10 text-up text-sm font-semibold hover:bg-up/20 disabled:opacity-50 transition-colors"
+    >
+      {claimed ? "Resgatado!" : isClaiming ? "Resgatando..." : "Resgatar ganhos →"}
+    </button>
+  );
+}
+
+function TopHolders({ marketId }: { marketId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["top-holders", marketId],
+    queryFn: async () => {
+      const res = await fetch(`/api/markets/holders?market_id=${marketId}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.holders ?? [];
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const holders = (data ?? []) as Array<{
+    handle: string;
+    side: string;
+    total_quantity: number;
+    total_value: number;
+  }>;
+
+  if (isLoading) {
+    return (
+      <div className="bg-surface rounded-lg border border-border p-4">
+        <h3 className="text-sm font-semibold mb-3">Transparência</h3>
+        <p className="text-xs text-text-tertiary animate-pulse py-2">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (holders.length === 0) return null;
+
+  return (
+    <div className="bg-surface rounded-lg border border-border p-4">
+      <h3 className="text-sm font-semibold mb-3">Transparência</h3>
+      <div className="space-y-2 text-xs">
+        <p className="text-text-tertiary uppercase tracking-wider mb-2">Top holders</p>
+        {holders.slice(0, 5).map((h, i) => (
+          <div key={h.handle} className="flex items-center gap-2 text-text-secondary">
+            <span className="w-4 text-right text-text-tertiary">{i + 1}.</span>
+            <Link href={`/u/${h.handle}`} className="text-accent hover:underline">@{h.handle}</Link>
+            <span className="flex-1" />
+            <span className="font-mono">{formatCurrency(h.total_value)}</span>
+            <span className={h.side === "yes" ? "text-up" : "text-down"}>{h.side === "yes" ? "Sim" : "Não"}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MarketView({ market }: { market: MarketDetail }) {
   const isResolved = market.status.startsWith("resolved");
   const catIcon = categoryIcons[market.category] || "trend-up";
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const isSignedIn = !!clerkSignedIn;
 
   return (
     <>
@@ -501,10 +720,6 @@ export default function MarketView({ market }: { market: MarketDetail }) {
 
         <div className="flex items-center gap-2 mt-3">
           <WatchlistButton marketId={market.id} />
-          <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-text hover:border-border-strong transition-colors">
-            <Icon name="bell" className="w-3.5 h-3.5" />
-            Alertar
-          </button>
           <button
             type="button"
             onClick={() => {
@@ -529,9 +744,7 @@ export default function MarketView({ market }: { market: MarketDetail }) {
           <p className="text-xs text-text-secondary">
             Fonte: {market.source || "—"}
           </p>
-          <button type="button" className="mt-3 px-4 py-2 rounded-md bg-up/10 text-up text-sm font-semibold hover:bg-up/20 transition-colors">
-            Resgatar ganhos →
-          </button>
+          {isSignedIn && <ClaimButton market={market} />}
         </div>
       )}
 
@@ -603,27 +816,7 @@ export default function MarketView({ market }: { market: MarketDetail }) {
 
           <Comments marketId={market.id} />
 
-          {/* Transparency */}
-          <div className="bg-surface rounded-lg border border-border p-4">
-            <h3 className="text-sm font-semibold mb-3">Transparência</h3>
-            <div className="space-y-2 text-xs">
-              <p className="text-text-tertiary uppercase tracking-wider mb-2">Top holders</p>
-              {[
-                { handle: "@macro_king", amount: "R$ 50K", side: "Sim" },
-                { handle: "@selic_watcher", amount: "R$ 38K", side: "Sim" },
-                { handle: "@bear_trader", amount: "R$ 22K", side: "Não" },
-              ].map((h, i) => (
-                <div key={i} className="flex items-center gap-2 text-text-secondary">
-                  <span className="w-4 text-right text-text-tertiary">{i + 1}.</span>
-                  <span className="text-accent">{h.handle}</span>
-                  <span className="flex-1" />
-                  <span className="font-mono">{h.amount}</span>
-                  <span className={h.side === "Sim" ? "text-up" : "text-down"}>{h.side}</span>
-                </div>
-              ))}
-              <p className="text-text-tertiary mt-2">Top 3 = 22% do volume total</p>
-            </div>
-          </div>
+          <TopHolders marketId={market.id} />
         </div>
 
         {!isResolved && (

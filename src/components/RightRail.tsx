@@ -1,20 +1,17 @@
+import Link from "next/link";
 import { getTopMovers } from "@/lib/queries/markets";
-import { formatVolume, formatVariation } from "@/lib/utils";
+import { getRecentActivity, getTopTraders } from "@/lib/queries/activity";
+import { formatVolume, formatVariation, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import Icon from "./Icon";
 
 export default async function RightRail() {
-  const movers = await getTopMovers(5);
+  const [movers, activity, topTraders] = await Promise.all([
+    getTopMovers(5),
+    getRecentActivity(5),
+    getTopTraders(5),
+  ]);
 
   const trending = [...movers].sort((a, b) => Math.abs(b.variation24h) - Math.abs(a.variation24h));
-
-  // TODO: Replace with real activity_log query when users exist
-  const recentActivity = [
-    { user: "@macro_king", action: "comprou Sim", market: "Selic sobe em maio?", amount: "R$ 50K", time: "agora" },
-    { user: "@ana_trade", action: "vendeu Não", market: "Lula reeleito?", amount: "R$ 2K", time: "1min" },
-    { user: "@bbb_expert", action: "comprou Sim", market: "BBB: Ana vence?", amount: "R$ 800", time: "2min" },
-    { user: "@cripto_br", action: "vendeu Sim", market: "BTC > $100K?", amount: "R$ 5K", time: "3min" },
-    { user: "@fla_sempre", action: "comprou Sim", market: "Fla campeão?", amount: "R$ 1.2K", time: "5min" },
-  ];
 
   const rankBadge = (rank: number) => {
     if (rank === 1) return "text-accent font-bold";
@@ -33,7 +30,7 @@ export default async function RightRail() {
         </h3>
         <div className="space-y-2">
           {trending.map((m) => (
-            <div key={m.id} className="flex items-start gap-2 py-1.5">
+            <Link key={m.id} href={`/mercado/${m.slug}`} className="flex items-start gap-2 py-1.5 hover:bg-surface-raised rounded px-1 -mx-1 transition-colors">
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-text truncate">{m.title}</p>
                 <div className="flex items-center gap-2 text-xs text-text-secondary">
@@ -44,7 +41,7 @@ export default async function RightRail() {
                 </div>
               </div>
               <span className="text-[10px] font-mono text-text-tertiary">{formatVolume(m.volume)}</span>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -55,37 +52,45 @@ export default async function RightRail() {
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-down mr-1.5 animate-pulse-live" />
           Feed ao vivo
         </h3>
-        <div className="space-y-2.5">
-          {recentActivity.map((a, i) => (
-            <div key={i} className="text-xs text-text-secondary leading-relaxed">
-              <span className="text-accent">{a.user}</span> {a.action} em &ldquo;{a.market}&rdquo; · {a.amount} · <span className="text-text-tertiary">{a.time}</span>
-            </div>
-          ))}
-        </div>
+        {activity.length === 0 ? (
+          <p className="text-xs text-text-tertiary py-2">Nenhuma atividade recente.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {activity.map((a) => (
+              <div key={a.id} className="text-xs text-text-secondary leading-relaxed">
+                <Link href={`/u/${a.handle}`} className="text-accent hover:underline">@{a.handle}</Link>
+                {" "}{a.action === "buy" ? "comprou" : "vendeu"} {a.side === "yes" ? "Sim" : "Não"} em
+                {" "}&ldquo;<Link href={`/mercado/${a.marketSlug}`} className="hover:underline">{a.marketTitle}</Link>&rdquo;
+                {" "}· {formatCurrency(a.amount)}
+                {" "}· <span className="text-text-tertiary">{formatRelativeTime(a.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Top Traders */}
       <section>
         <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-tertiary mb-3">
           <Icon name="trophy" className="w-3.5 h-3.5 text-accent opacity-70" />
-          Top traders semana
+          Top traders
         </h3>
-        <div className="space-y-2">
-          {[
-            { rank: 1, name: "@macro_king", pnl: "+R$ 12,4K" },
-            { rank: 2, name: "@selic_bull", pnl: "+R$ 8,9K" },
-            { rank: 3, name: "@crypto_ana", pnl: "+R$ 7,2K" },
-            { rank: 4, name: "@bbb_expert", pnl: "+R$ 5,8K" },
-            { rank: 5, name: "@fla_trader", pnl: "+R$ 4,1K" },
-          ].map((t) => (
-            <div key={t.rank} className="flex items-center gap-2 text-sm">
-              <span className={`w-5 text-center text-xs font-mono ${rankBadge(t.rank)}`}>{t.rank}</span>
-              <span className="flex-1 text-text-secondary">{t.name}</span>
-              <span className="font-mono text-xs text-up">{t.pnl}</span>
-            </div>
-          ))}
-        </div>
-        <button type="button" className="mt-2 text-xs text-accent hover:underline">Ver ranking completo →</button>
+        {topTraders.length === 0 ? (
+          <p className="text-xs text-text-tertiary py-2">Ainda sem dados de ranking.</p>
+        ) : (
+          <div className="space-y-2">
+            {topTraders.map((t, i) => (
+              <Link key={t.handle} href={`/u/${t.handle}`} className="flex items-center gap-2 text-sm hover:bg-surface-raised rounded px-1 -mx-1 py-0.5 transition-colors">
+                <span className={`w-5 text-center text-xs font-mono ${rankBadge(i + 1)}`}>{i + 1}</span>
+                <span className="flex-1 text-text-secondary truncate">@{t.handle}</span>
+                <span className={`font-mono text-xs ${t.totalPnl >= 0 ? "text-up" : "text-down"}`}>
+                  {t.totalPnl >= 0 ? "+" : ""}{formatCurrency(t.totalPnl)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+        <Link href="/rankings" className="mt-2 text-xs text-accent hover:underline inline-block">Ver ranking completo →</Link>
       </section>
     </aside>
   );
